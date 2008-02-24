@@ -1,4 +1,5 @@
 import sys
+import os
 from tracer import Tracer
 
 def main():

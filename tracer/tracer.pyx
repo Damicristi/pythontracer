@@ -3,18 +3,21 @@ from marshal import dumps
 cdef extern from "sys/types.h":
     ctypedef unsigned long size_t
 
-cdef extern from "sys/time.h":
-    ctypedef long time_t
-    ctypedef long suseconds_t
-    struct timeval:
-        time_t tv_sec
-        suseconds_t tv_usec
-    struct timezone:
-        int tz_minuteswest
-        int tz_dsttime
-
-cdef extern from "time.h":
-    int gettimeofday(timeval *tv, timezone *tz)
+cdef extern from "errno.h":
+    int errno
+    
+cdef extern from "sys/param.h":
+    int HZ
+    
+cdef extern from "sys/times.h":
+    ctypedef int clock_t
+    struct tms:
+        clock_t tms_utime
+        clock_t tms_stime
+        clock_t tms_cutime
+        clock_t tms_cstime
+    clock_t times(tms *buf)
+               
 
 cdef extern from "stdlib.h":
     void *malloc(size_t size)
@@ -24,7 +27,7 @@ cdef extern from "stdio.h":
     ctypedef struct FILE
 
 cdef extern from "Python.h":
-    ctypedef unsigned long Py_ssize_t
+    #ctypedef unsigned long Py_ssize_t
     int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
     enum PyTraceEvent:
         PyTrace_CALL
@@ -88,15 +91,24 @@ cdef class Tracer:
         graphfile_writer_fini(&self.writer)
 
     cdef void _trace_event(self, object frame, int event, void *trace_arg):
-        cdef timeval tv
-        if 0 != gettimeofday(&tv, NULL):
-            raise Error("gettimeofday")
-        cur_time = (<unsigned long long>1000000 * tv.tv_sec) + <unsigned long long>tv.tv_usec
+        cdef tms times_result
+        cdef clock_t times_return
+        cdef double sys_time, user_time, real_time
+        
+        errno = 0
+        times_return = times(&times_result)
+        if times_return == <clock_t>-1:
+            raise OSError(errno, "times")
+        user_time = <double>times_result.tms_utime / HZ
+        sys_time = <double>times_result.tms_stime / HZ
+        real_time = <double>times_return / HZ
         if event == PyTrace_CALL:
-            self.stack.append((frame.f_code, cur_time, []))
+            self.stack.append((frame.f_code, (user_time, sys_time, real_time), []))
         elif event == PyTrace_RETURN:
-            code, start_time, children = self.stack.pop()
-            child = self._write((((code.co_filename, code.co_name), (0, cur_time - start_time)), children))
+            code, (start_user_time, start_sys_time, start_real_time), children = self.stack.pop()
+            child = self._write((((code.co_filename, code.co_name), (user_time - start_user_time,
+                                                                     sys_time - start_sys_time,
+                                                                     real_time - start_real_time)), children))
             self.stack[-1][-1].append(child)
 
     cdef _encode(self, data):
@@ -129,7 +141,7 @@ cdef class Tracer:
 
     def trace(self, func):
         cdef _Linkable root
-        self.stack = [((('', ''), (0, 0)), [])]
+        self.stack = [((('', ''), (0, 0, 0)), [])]
         PyEval_SetProfile(<Py_tracefunc>&callback, self)
         try:
             return func()

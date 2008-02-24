@@ -29,24 +29,27 @@ class Model(gtk.GenericTreeModel):
     def on_iter_parent(self, (indices, nodes)):
         return (indices[:-1], nodes[:-1])
 
-def millionth(x):
-    return '%.5f' % (x/1000000.)
+def format_time(x):
+    return '%.5f' % (x,)
 
 class TraceReader(Model):
-    def _get_cpu_time(self, (indices, nodes)):
-        ((module_name, func_name), (cpu_time, real_time)), children = self._read(nodes[-1])
-        return millionth(cpu_time)
+    def _get_user_time(self, (indices, nodes)):
+        ((module_name, func_name), (user_time, sys_time, real_time)), children = self._read(nodes[-1])
+        return format_time(user_time)
+    def _get_sys_time(self, (indices, nodes)):
+        ((module_name, func_name), (user_time, sys_time, real_time)), children = self._read(nodes[-1])
+        return format_time(sys_time)
     def _get_real_time(self, (indices, nodes)):
-        ((module_name, func_name), (cpu_time, real_time)), children = self._read(nodes[-1])
-        return millionth(real_time)
+        ((module_name, func_name), (user_time, sys_time, real_time)), children = self._read(nodes[-1])
+        return format_time(real_time)
     def _get_namestr(self, (indices, nodes)):
-        ((module_name, func_name), (cpu_time, real_time)), children = self._read(nodes[-1])
+        ((module_name, func_name), (user_time, sys_time, real_time)), children = self._read(nodes[-1])
         return '%s:%s' % (module_name, func_name)
     def _read(self, node):
         data, children = self.graph_reader.read(node)
         return loads(data), children
-    column_getters = [_get_namestr, _get_real_time, _get_cpu_time]
-    column_types = [str, str, str]
+    column_getters = [_get_namestr, _get_user_time, _get_sys_time, _get_real_time]
+    column_types = [str, str, str, str]
     def __init__(self, graph_reader):
         self.graph_reader = graph_reader
         Model.__init__(self)
@@ -83,8 +86,9 @@ class TraceView(object):
         self.widget.add(self.tree_view)
 
         name_column = self._create_column('Name', 0)
-        real_time_column = self._create_column('Real Time', 1)
-        cpu_time_column = self._create_column('CPU Time', 2)
+        user_time_column = self._create_column('User Time', 1)
+        system_time_column = self._create_column('System Time', 2)
+        real_time_column = self._create_column('Real Time', 3)
         name_column.set_sort_column_id(0)
         self.tree_view.set_search_column(0)
 
