@@ -15,8 +15,8 @@ class Model(gtk.GenericTreeModel):
         return self.column_types[index]
     def on_get_iter(self, indices):
         return indices, list(self.walk_path(indices))
-    def on_get_path(self, (indices, node)):
-        return indices
+    def on_get_path(self, (indices, nodes)):
+        return tuple(indices)
     def on_get_value(self, rowref, column):
         return self.column_getters[column](self, rowref)
     def on_iter_children(self, (indices, nodes)):
