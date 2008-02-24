@@ -1,0 +1,2 @@
+* Consistent names (no "node", just "linkable" or vice versa)
+  * In python bindings too

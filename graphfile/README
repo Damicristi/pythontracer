@@ -1,0 +1,17 @@
+Graphfile is a graph serialization library.
+
+It is currently of limited scope and only meant to support write in
+append-only mode where nodes must consist of a binary blob, and links
+to other nodes.
+
+The serialized file has the following format:
+
+Offsets are 64-bit large.
+The file begins with the offset, in the file, of the "root" node.
+The bytes at that offset will contain a Node, of the structure:
+
+Type           Name
+size_t,buffer  Arbitrary data of the root node
+size_t,Offsets Offsets of linked nodes from the root node
+
+Each offset of Offsets will also be a Node.
