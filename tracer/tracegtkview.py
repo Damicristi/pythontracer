@@ -6,6 +6,9 @@ from pygraphfile import Reader
 from marshal import loads
 
 class Model(gtk.GenericTreeModel):
+    # In a (indices, nodes) tuple:
+    # len(nodes) == len(indices)+1
+    # nodes = [root] + [children_for_each_of_indices]
     def on_get_n_columns(self):
         return len(self.column_types)
     def on_get_column_type(self, index):
@@ -16,11 +19,15 @@ class Model(gtk.GenericTreeModel):
         return indices
     def on_get_value(self, rowref, column):
         return self.column_getters[column](self, rowref)
-
-# indices, nodes
-# len(nodes) == len(indices)+1
-# nodes = [root] + [children_for_each_of_indices]
-# TODO: Move yuckiness to superclass
+    def on_iter_children(self, (indices, nodes)):
+        return self.on_iter_nth_child((indices, nodes), 0)
+    def on_iter_has_child(self, rowref):
+        return bool(self.on_iter_n_children(rowref))
+    def on_iter_next(self, (indices, nodes)):
+        parent = self.on_iter_parent((indices, nodes))
+        return self.on_iter_nth_child(parent, indices[-1]+1)
+    def on_iter_parent(self, (indices, nodes)):
+        return (indices[:-1], nodes[:-1])
 
 def millionth(x):
     return '%.5f' % (x/1000000.)
@@ -52,26 +59,6 @@ class TraceReader(Model):
             data, children = self.graph_reader.read(cur)
             cur = children[index]
             yield cur
-    def on_iter_next(self, (indices, nodes)):
-        indices = list(indices)
-        value = indices.pop() + 1
-        nodes = list(nodes)
-        child = nodes.pop()
-        assert nodes
-        parent_data, parent_children = self.graph_reader.read(nodes[-1])
-        if value < len(parent_children):
-            indices.append(value)
-            nodes.append(parent_children[value])
-            return (indices, nodes)
-    def on_iter_children(self, (indices, nodes)):
-        indices = list(indices) + [0]
-        data, children = self.graph_reader.read(nodes[-1])
-        if not children:
-            return None
-        nodes = list(nodes) + [children[0]]
-        return (indices, nodes)
-    def on_iter_has_child(self, rowref):
-        return self.on_iter_n_children(rowref)
     def on_iter_n_children(self, (indices, nodes)):
         data, children = self.graph_reader.read(nodes[-1])
         return len(children)
@@ -84,8 +71,6 @@ class TraceReader(Model):
             return None
         return (list(indices) + [n],
                 list(nodes) + [children[n]])
-    def on_iter_parent(self, (indices, nodes)):
-        return (indices[:-1], nodes[:-1])
 
 class TraceView(object):
     def __init__(self, graph_reader):
