@@ -7,10 +7,14 @@ cdef extern from "stdlib.h":
     void *malloc(size_t size)
     void free(void *ptr)
 
+cdef extern from "stdio.h":
+    ctypedef struct FILE
+
 cdef extern from "Python.h":
     ctypedef unsigned long Py_ssize_t
     int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
     object PyString_FromStringAndSize(char *, Py_ssize_t)
+    FILE *PyFile_AsFile(fileobj)
 
 cdef extern from "../graphfile.h":
     ctypedef struct graphfile_writer_t:
@@ -19,7 +23,7 @@ cdef extern from "../graphfile.h":
         pass
     ctypedef struct graphfile_linkable_t:
         pass
-    int graphfile_writer_init(graphfile_writer_t *, int fd)
+    int graphfile_writer_init(graphfile_writer_t *, FILE *file)
     int graphfile_writer_set_root(graphfile_writer_t *,
                                   graphfile_linkable_t *root)
     void graphfile_writer_fini(graphfile_writer_t *)
@@ -29,7 +33,7 @@ cdef extern from "../graphfile.h":
                                graphfile_linkable_t linkables[], size_t linkable_count,
                                graphfile_linkable_t *result_linkable)
 
-    int graphfile_reader_init(graphfile_reader_t *, int fd,
+    int graphfile_reader_init(graphfile_reader_t *, FILE *file,
                               graphfile_linkable_t *result_root)
     void graphfile_reader_fini(graphfile_reader_t *)
 
@@ -52,21 +56,26 @@ cdef void *allocate(int size):
 cdef class _Linkable:
     cdef graphfile_linkable_t linkable
 
+cdef FILE *get_file(fileobj):
+    cdef FILE *file
+    file = PyFile_AsFile(fileobj)
+    if NULL == file:
+        raise Error("Invalid fileobj")
+    return file
+
 cdef class Writer:
     cdef graphfile_writer_t writer
     cdef readonly object fileobj
     def __new__(self, fileobj):
-        cdef int fd
-        fd = fileobj.fileno()
-        if 0 != graphfile_writer_init(&self.writer, fd):
-            raise Error()
+        if 0 != graphfile_writer_init(&self.writer, get_file(fileobj)):
+            raise Error("graphfile_writer_init")
         self.fileobj = fileobj
     def __dealloc__(self):
         graphfile_writer_fini(&self.writer)
 
     def set_root(self, _Linkable root):
         if 0 != graphfile_writer_set_root(&self.writer, &root.linkable):
-            raise Error()
+            raise Error("graphfile_writer_set_root")
 
     def write(self, data, linkables):
         cdef _Linkable result_linkable
@@ -86,7 +95,7 @@ cdef class Writer:
                                             c_linkables, len(linkables),
                                             &result_linkable.linkable)
             if result != 0:
-                raise Error()
+                raise Error("graphfile_writer_write")
             return result_linkable
         finally:
             free(c_linkables)
@@ -96,11 +105,9 @@ cdef class Reader:
     cdef readonly _Linkable root
     cdef readonly object fileobj
     def __new__(self, fileobj):
-        cdef int fd
-        fd = fileobj.fileno()
         self.root = _Linkable()
-        if 0 != graphfile_reader_init(&self.reader, fd, &self.root.linkable):
-            raise Error()
+        if 0 != graphfile_reader_init(&self.reader, get_file(fileobj), &self.root.linkable):
+            raise Error("graphfile_reader_init")
         self.fileobj = fileobj
     def __dealloc__(self):
         graphfile_reader_fini(&self.reader)
@@ -123,7 +130,7 @@ cdef class Reader:
             NULL, 0,
             &result_linkables_count)
         if result != 0:
-            raise Error()
+            raise Error("graphfile_reader_read")
 
         result_buffer = <char *>allocate(result_buffer_length)
         try:
@@ -139,7 +146,7 @@ cdef class Reader:
                     result_linkables, result_linkables_count,
                     &new_result_linkables_count)
                 if result != 0:
-                    raise Error()
+                    raise Error("graphfile_reader_read")
                 if (new_result_buffer_length != result_buffer_length or
                     new_result_linkables_count != result_linkables_count):
                     raise Error("File has changed within a single read")

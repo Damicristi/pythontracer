@@ -1,14 +1,16 @@
 #ifndef __graphfile_internal_h_
 #define __graphfile_internal_h_
 
+#include <stdio.h>
+
 typedef unsigned long long graphfile_offset_t;
 
 struct graphfile_writer {
-    int fd;
+    FILE *file;
 };
 
 struct graphfile_reader {
-    int fd;
+    FILE *file;
 };
 
 struct graphfile_linkable {

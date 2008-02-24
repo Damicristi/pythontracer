@@ -20,6 +20,9 @@ cdef extern from "stdlib.h":
     void *malloc(size_t size)
     void free(void *ptr)
 
+cdef extern from "stdio.h":
+    ctypedef struct FILE
+
 cdef extern from "Python.h":
     ctypedef unsigned long Py_ssize_t
     int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
@@ -32,6 +35,7 @@ cdef extern from "Python.h":
         PyTrace_C_EXCEPTION
         PyTrace_C_RETURN
 
+    FILE *PyFile_AsFile(fileobj)
     ctypedef void *Py_tracefunc
     void PyEval_SetProfile(Py_tracefunc func, object arg)
     # PyEval_SetTrace is the same as PyEval_SetProfile, except it also
@@ -43,7 +47,7 @@ cdef extern from "../graphfile/graphfile.h":
         pass
     ctypedef struct graphfile_linkable_t:
         pass
-    int graphfile_writer_init(graphfile_writer_t *, int fd)
+    int graphfile_writer_init(graphfile_writer_t *, FILE *f)
     int graphfile_writer_set_root(graphfile_writer_t *,
                                   graphfile_linkable_t *root)
     void graphfile_writer_fini(graphfile_writer_t *)
@@ -62,6 +66,13 @@ cdef void *allocate(int size):
 
 class Error(Exception): pass
 
+cdef FILE *get_file(fileobj):
+    cdef FILE *file
+    file = PyFile_AsFile(fileobj)
+    if NULL == file:
+        raise Error("Invalid fileobj")
+    return file
+
 cdef class _Linkable:
     cdef graphfile_linkable_t linkable
 
@@ -70,9 +81,7 @@ cdef class Tracer:
     cdef readonly object fileobj
     cdef object stack
     def __new__(self, fileobj):
-        cdef int fd
-        fd = fileobj.fileno()
-        if 0 != graphfile_writer_init(&self.writer, fd):
+        if 0 != graphfile_writer_init(&self.writer, get_file(fileobj)):
             raise Error("graphfile_writer_init")
         self.fileobj = fileobj
     def __dealloc__(self):

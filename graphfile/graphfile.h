@@ -13,7 +13,7 @@ typedef struct graphfile_linkable graphfile_linkable_t;
 /* An empty, seekable and writable file must be referenced by fd.
  * Noone else must move the offset of fd while the writer is active
  * (until it is finalized). */
-int graphfile_writer_init(graphfile_writer_t *graphfile_writer, int fd);
+int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *);
 /* This must be called to get a coherent file. */
 int graphfile_writer_set_root(graphfile_writer_t *graphfile_writer,
                               graphfile_linkable_t *root);
@@ -25,7 +25,7 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
                            graphfile_linkable_t *result_linkable);
 
 /* A coherent, seekable and readable file must be referenced by fd. */
-int graphfile_reader_init(graphfile_reader_t *graphfile_reader, int fd,
+int graphfile_reader_init(graphfile_reader_t *graphfile_reader, FILE *,
                           graphfile_linkable_t *result_root);
 void graphfile_reader_fini(graphfile_reader_t *graphfile_reader);
 
