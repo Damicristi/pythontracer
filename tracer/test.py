@@ -1,4 +1,7 @@
+import time
+
 def g():
+    time.sleep(0.1)
     print 'g'
 
 def f():

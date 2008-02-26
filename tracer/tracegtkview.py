@@ -41,7 +41,7 @@ class TraceReader(Model):
         return format_time(sys_time)
     def _get_real_time(self, (indices, nodes)):
         ((module_name, func_name), (user_time, sys_time, real_time)), children = self._read(nodes[-1])
-        return format_time(real_time)
+        return format_time(real_time/1000000.)
     def _get_namestr(self, (indices, nodes)):
         ((module_name, func_name), (user_time, sys_time, real_time)), children = self._read(nodes[-1])
         return '%s:%s' % (module_name, func_name)

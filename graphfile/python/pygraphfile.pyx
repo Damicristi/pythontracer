@@ -11,7 +11,7 @@ cdef extern from "stdio.h":
     ctypedef struct FILE
 
 cdef extern from "Python.h":
-    #ctypedef unsigned long Py_ssize_t
+    ctypedef unsigned long Py_ssize_t
     int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
     object PyString_FromStringAndSize(char *, Py_ssize_t)
     FILE *PyFile_AsFile(fileobj)

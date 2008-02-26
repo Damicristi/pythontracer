@@ -8,7 +8,20 @@ cdef extern from "errno.h":
     
 cdef extern from "sys/param.h":
     int HZ
-    
+
+cdef extern from "sys/time.h":
+    ctypedef long time_t
+    ctypedef long suseconds_t
+    struct timeval:
+        time_t tv_sec
+        suseconds_t tv_usec
+    struct timezone:
+        int tz_minuteswest
+        int tz_dsttime
+
+cdef extern from "time.h":
+    int gettimeofday(timeval *tv, timezone *tz)
+
 cdef extern from "sys/times.h":
     ctypedef int clock_t
     struct tms:
@@ -27,7 +40,7 @@ cdef extern from "stdio.h":
     ctypedef struct FILE
 
 cdef extern from "Python.h":
-    #ctypedef unsigned long Py_ssize_t
+    ctypedef unsigned long Py_ssize_t
     int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
     enum PyTraceEvent:
         PyTrace_CALL
@@ -93,15 +106,20 @@ cdef class Tracer:
     cdef void _trace_event(self, object frame, int event, void *trace_arg):
         cdef tms times_result
         cdef clock_t times_return
-        cdef double sys_time, user_time, real_time
-        
+        cdef double sys_time, user_time
+        cdef unsigned long long real_time
+        cdef timeval tv
+
+        if 0 != gettimeofday(&tv, NULL):
+            raise Error("gettimeofday")
+        real_time = (<unsigned long long>1000000 * tv.tv_sec) + <unsigned long long>tv.tv_usec
+
         errno = 0
         times_return = times(&times_result)
         if times_return == <clock_t>-1:
             raise OSError(errno, "times")
         user_time = <double>times_result.tms_utime / HZ
         sys_time = <double>times_result.tms_stime / HZ
-        real_time = <double>times_return / HZ
         if event == PyTrace_CALL:
             self.stack.append((frame.f_code, (user_time, sys_time, real_time), []))
         elif event == PyTrace_RETURN:
