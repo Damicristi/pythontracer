@@ -110,6 +110,8 @@ cdef class Tracer:
         cdef unsigned long long real_time
         cdef timeval tv
 
+        if event != PyTrace_CALL and event != PyTrace_RETURN:
+            return
         if 0 != gettimeofday(&tv, NULL):
             raise Error("gettimeofday")
         real_time = (<unsigned long long>1000000 * tv.tv_sec) + <unsigned long long>tv.tv_usec
@@ -122,12 +124,14 @@ cdef class Tracer:
         sys_time = <double>times_result.tms_stime / HZ
         if event == PyTrace_CALL:
             self.stack.append((frame.f_code, (user_time, sys_time, real_time), []))
-        elif event == PyTrace_RETURN:
+        else:
+            # Implies: PyTrace_RETURN:
             code, (start_user_time, start_sys_time, start_real_time), children = self.stack.pop()
             child = self._write((((code.co_filename, code.co_name), (user_time - start_user_time,
                                                                      sys_time - start_sys_time,
                                                                      real_time - start_real_time)), children))
-            self.stack[-1][-1].append(child)
+            parent_code, parent_times, parent_children = self.stack[-1]
+            parent_children.append(child)
 
     cdef _encode(self, data):
         return dumps(data)
@@ -159,14 +163,15 @@ cdef class Tracer:
 
     def trace(self, func):
         cdef _Linkable root
-        self.stack = [((('', ''), (0, 0, 0)), [])]
+        self.stack = [(None, (0, 0, 0), [])]
         PyEval_SetProfile(<Py_tracefunc>&callback, self)
         try:
             return func()
         finally:
             PyEval_SetProfile(NULL, None)
-            root = self._write(self.stack.pop())
+            code, times, children = self.stack.pop()
             assert not self.stack
+            root = self._write((None, children))
             if 0 != graphfile_writer_set_root(&self.writer, &root.linkable):
                 raise Error("graphfile_writer_set_root")
 
