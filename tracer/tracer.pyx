@@ -123,13 +123,15 @@ cdef class Tracer:
         user_time = <double>times_result.tms_utime / HZ
         sys_time = <double>times_result.tms_stime / HZ
         if event == PyTrace_CALL:
-            self.stack.append((frame.f_code, (user_time, sys_time, real_time), []))
+            self.stack.append(((frame.f_code, frame.f_lineno),
+                               (user_time, sys_time, real_time), []))
         else:
             # Implies: PyTrace_RETURN:
-            code, (start_user_time, start_sys_time, start_real_time), children = self.stack.pop()
-            child = self._write((((code.co_filename, code.co_name), (user_time - start_user_time,
-                                                                     sys_time - start_sys_time,
-                                                                     real_time - start_real_time)), children))
+            (code, lineno), (start_user_time, start_sys_time, start_real_time), children = self.stack.pop()
+            child = self._write((((code.co_filename, code.co_name, lineno),
+                                  (user_time - start_user_time,
+                                   sys_time - start_sys_time,
+                                   real_time - start_real_time)), children))
             parent_code, parent_times, parent_children = self.stack[-1]
             parent_children.append(child)
 
@@ -163,7 +165,7 @@ cdef class Tracer:
 
     def trace(self, func):
         cdef _Linkable root
-        self.stack = [(None, (0, 0, 0), [])]
+        self.stack = [(None, None, [])]
         PyEval_SetProfile(<Py_tracefunc>&callback, self)
         try:
             return func()
