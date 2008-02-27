@@ -1,0 +1,6 @@
+* key to jump to/directly open highest time consumer child
+* Add more information about call/ret (params, ret value -- print their types? ids?)
+* filter to remove uninteresting functions
+* enable search
+* replace  filename:func_name  with  filename:class_name.method_name  if method
+* show generator.next() differently to a normal call, maybe show the func_name.next() or something like that

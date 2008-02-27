@@ -6,47 +6,52 @@ from pygraphfile import Reader
 from marshal import loads
 
 class Model(gtk.GenericTreeModel):
-    # In a (indices, nodes) tuple:
-    # len(nodes) == len(indices)+1
-    # nodes = [root] + [children_for_each_of_indices]
+    # rowref <-> path are the same here
     def on_get_n_columns(self):
         return len(self.column_types)
     def on_get_column_type(self, index):
         return self.column_types[index]
-    def on_get_iter(self, indices):
-        return indices, list(self.walk_path(indices))
-    def on_get_path(self, (indices, nodes)):
-        return tuple(indices)
-    def on_get_value(self, rowref, column):
-        return self.column_getters[column](self, rowref)
-    def on_iter_children(self, (indices, nodes)):
-        return self.on_iter_nth_child((indices, nodes), 0)
-    def on_iter_has_child(self, rowref):
-        return bool(self.on_iter_n_children(rowref))
-    def on_iter_next(self, (indices, nodes)):
-        parent = self.on_iter_parent((indices, nodes))
-        return self.on_iter_nth_child(parent, indices[-1]+1)
-    def on_iter_parent(self, (indices, nodes)):
-        return (indices[:-1], nodes[:-1])
+    def on_get_iter(self, path):
+        return path
+    def on_get_path(self, path):
+        return tuple(path)
+    def on_get_value(self, path, column):
+        return self.column_getters[column](self, path)
+    def on_iter_children(self, path):
+        return self.on_iter_nth_child(path, 0)
+    def on_iter_has_child(self, path):
+        return bool(self.on_iter_n_children(path))
+    def on_iter_next(self, path):
+        parent = self.on_iter_parent(path)
+        if path[-1]+1 >= self.on_iter_n_children(parent):
+            return None
+        return self.on_iter_nth_child(parent, path[-1]+1)
+    def on_iter_parent(self, path):
+        return path[:-1]
 
 def format_time(x):
     return '%.5f' % (x,)
 
 class TraceReader(Model):
-    def _get_user_time(self, (indices, nodes)):
-        (code, (user_time, sys_time, real_time)), children = self._read(nodes[-1])
+    def _get_user_time(self, path):
+        (code, (user_time, sys_time, real_time)), children = self.read(path)
         return format_time(user_time)
-    def _get_sys_time(self, (indices, nodes)):
-        (code, (user_time, sys_time, real_time)), children = self._read(nodes[-1])
+    def _get_sys_time(self, path):
+        (code, (user_time, sys_time, real_time)), children = self.read(path)
         return format_time(sys_time)
-    def _get_real_time(self, (indices, nodes)):
-        (code, (user_time, sys_time, real_time)), children = self._read(nodes[-1])
+    def _get_real_time(self, path):
+        (code, (user_time, sys_time, real_time)), children = self.read(path)
         return format_time(real_time/1000000.)
-    def _get_namestr(self, (indices, nodes)):
-        ((module_name, func_name, lineno), times), children = self._read(nodes[-1])
+    def _get_namestr(self, path):
+        ((module_name, func_name, lineno), times), children = self.read(path)
         return '%s(%d):%s' % (module_name, lineno, func_name)
-    def _read(self, node):
-        data, children = self.graph_reader.read(node)
+    def read(self, path):
+        cur = self.graph_reader.root
+        for index in path:
+            data, children = self.graph_reader.read(cur)
+            cur = children[index]
+
+        data, children = self.graph_reader.read(cur)
         return loads(data), children
     column_getters = [_get_namestr, _get_user_time, _get_sys_time, _get_real_time]
     column_types = [str, str, str, str]
@@ -55,29 +60,13 @@ class TraceReader(Model):
         Model.__init__(self)
     def on_get_flags(self):
         return gtk.TREE_MODEL_ITERS_PERSIST
-    def walk_path(self, indices):
-        cur = self.graph_reader.root
-        yield cur
-        for index in indices:
-            data, children = self.graph_reader.read(cur)
-            cur = children[index]
-            yield cur
-    def get_item(self, indices):
-        for node in self.walk_path(indices):
-            pass
-        return self._read(node)
-    def on_iter_n_children(self, (indices, nodes)):
-        data, children = self.graph_reader.read(nodes[-1])
+    def on_iter_n_children(self, path):
+        data, children = self.read(path)
         return len(children)
-    def on_iter_nth_child(self, rowref, n):
-        if rowref is None:
+    def on_iter_nth_child(self, path, n):
+        if path is None:
             return self.on_get_iter([n])
-        indices, nodes = rowref
-        data, children = self.graph_reader.read(nodes[-1])
-        if n >= len(children):
-            return None
-        return (list(indices) + [n],
-                list(nodes) + [children[n]])
+        return tuple(path) + (n,)
 
 class TraceTree(object):
     def __init__(self, graph_reader):
@@ -88,6 +77,7 @@ class TraceTree(object):
                                gtk.POLICY_AUTOMATIC)
         
         self.tree_view = gtk.TreeView()
+        self.tree_view.set_property('enable-search', False)
         self.tree_view.set_model(self.treestore)
         self.widget.add(self.tree_view)
 
@@ -101,7 +91,7 @@ class TraceTree(object):
     def watch_cursor(self, callback):
         def cursor_changed(tree_view):
             path, column = self.tree_view.get_cursor()
-            callback(self.treestore.get_item(path), column)
+            callback(self.treestore.read(path), column)
         self.tree_view.connect("cursor-changed", cursor_changed)
 
     def _create_column(self, title, column_id):
@@ -110,6 +100,7 @@ class TraceTree(object):
         column.pack_start(cell, True)
 #        column.set_max_width(400)
         column.add_attribute(cell, 'text', column_id)
+        column.set_sizing(gtk.TREE_VIEW_COLUMN_AUTOSIZE)
         self.tree_view.append_column(column)
         return column
 
