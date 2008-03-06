@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+
 import sys
 import os
-from tracer import Tracer
+from pytracer import Tracer
 
 def main():
     tracer = Tracer(open("profile.out", "wb"))

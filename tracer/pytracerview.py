@@ -121,7 +121,11 @@ class CodePane(object):
     def watch(self, filename, lineno):
         if self._current_filename != filename:
             self._current_filename = filename
-            self.text_buffer.set_text(open(filename, 'rb').read())
+            try:
+                data = open(filename, 'rb').read()
+            except (OSError, IOError):
+                data = "Error: Cannot read %r" % (filename,)
+            self.text_buffer.set_text(data)
             self.widget.set_label(filename)
             self.last_tag = None
 
