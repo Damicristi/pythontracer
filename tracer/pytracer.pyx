@@ -59,6 +59,7 @@ cdef extern from "Python.h":
     void PyEval_SetTrace(Py_tracefunc func, object arg)
 
 cdef extern from "../graphfile/graphfile.h":
+    ctypedef unsigned long long graphfile_size_t
     ctypedef struct graphfile_writer_t:
         pass
     ctypedef struct graphfile_linkable_t:
@@ -69,8 +70,8 @@ cdef extern from "../graphfile/graphfile.h":
     void graphfile_writer_fini(graphfile_writer_t *)
 
     int graphfile_writer_write(graphfile_writer_t *,
-                               char *buffer, size_t buffer_length,
-                               graphfile_linkable_t linkables[], size_t linkable_count,
+                               char *buffer, graphfile_size_t buffer_length,
+                               graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
                                graphfile_linkable_t *result_linkable)
 
 cdef void *allocate(int size):
@@ -145,7 +146,7 @@ cdef class Tracer:
         cdef char *buffer
         cdef Py_ssize_t buffer_length
         cdef graphfile_linkable_t *c_linkables
-        cdef size_t i
+        cdef graphfile_size_t i
         cdef int result
         
         PyString_AsStringAndSize(databuf, &buffer, &buffer_length)

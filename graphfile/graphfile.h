@@ -7,6 +7,7 @@
 typedef struct graphfile_writer graphfile_writer_t;
 typedef struct graphfile_reader graphfile_reader_t;
 typedef struct graphfile_linkable graphfile_linkable_t;
+typedef unsigned long long graphfile_size_t;
 
 /* All int return types return zero to indicate success */
 
@@ -20,8 +21,8 @@ int graphfile_writer_set_root(graphfile_writer_t *graphfile_writer,
 void graphfile_writer_fini(graphfile_writer_t *graphfile_writer);
 
 int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
-                           char *buffer, size_t buffer_length,
-                           graphfile_linkable_t linkables[], size_t linkable_count,
+                           char *buffer, graphfile_size_t buffer_length,
+                           graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
                            graphfile_linkable_t *result_linkable);
 
 /* A coherent, seekable and readable file must be referenced by file. */
@@ -32,10 +33,10 @@ void graphfile_reader_fini(graphfile_reader_t *graphfile_reader);
 int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
                           graphfile_linkable_t *node,
 
-                          char *result_buffer, size_t max_buffer_length,
-                          size_t *result_buffer_length,
-                          
-                          graphfile_linkable_t result_linkables[], size_t max_linkable_count,
-                          size_t *result_linkables_count);
+                          char *result_buffer, graphfile_size_t max_buffer_length,
+                          graphfile_size_t *result_buffer_length,
+
+                          graphfile_linkable_t result_linkables[], graphfile_size_t max_linkable_count,
+                          graphfile_size_t *result_linkables_count);
 
 #endif

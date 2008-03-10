@@ -11,7 +11,7 @@ The file begins with the offset, in the file, of the "root" node.
 The bytes at that offset will contain a Node, of the structure:
 
 Type           Name
-size_t,buffer  Arbitrary data of the root node
-size_t,Offsets Offsets of linked nodes from the root node
+64-bit,buffer  Arbitrary data of the root node
+64-bit,Offsets Offsets of linked nodes from the root node
 
 Each offset of Offsets will also be a Node.

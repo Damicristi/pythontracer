@@ -17,6 +17,7 @@ cdef extern from "Python.h":
     FILE *PyFile_AsFile(fileobj)
 
 cdef extern from "../graphfile.h":
+    ctypedef unsigned long long graphfile_size_t
     ctypedef struct graphfile_writer_t:
         pass
     ctypedef struct graphfile_reader_t:
@@ -29,8 +30,8 @@ cdef extern from "../graphfile.h":
     void graphfile_writer_fini(graphfile_writer_t *)
 
     int graphfile_writer_write(graphfile_writer_t *,
-                               char *buffer, size_t buffer_length,
-                               graphfile_linkable_t linkables[], size_t linkable_count,
+                               char *buffer, graphfile_size_t buffer_length,
+                               graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
                                graphfile_linkable_t *result_linkable)
 
     int graphfile_reader_init(graphfile_reader_t *, FILE *file,
@@ -40,11 +41,11 @@ cdef extern from "../graphfile.h":
     int graphfile_reader_read(graphfile_reader_t *,
                               graphfile_linkable_t *node,
 
-                              char *result_buffer, size_t max_buffer_length,
-                              size_t *result_buffer_length,
-                          
-                              graphfile_linkable_t result_linkables[], size_t max_linkable_count,
-                              size_t *result_linkables_count)
+                              char *result_buffer, graphfile_size_t max_buffer_length,
+                              graphfile_size_t *result_buffer_length,
+
+                              graphfile_linkable_t result_linkables[], graphfile_size_t max_linkable_count,
+                              graphfile_size_t *result_linkables_count)
 
 cdef void *allocate(int size):
     cdef void *ptr
@@ -82,7 +83,7 @@ cdef class Writer:
         cdef char *buffer
         cdef Py_ssize_t buffer_length
         cdef graphfile_linkable_t *c_linkables
-        cdef size_t i
+        cdef graphfile_size_t i
         cdef int result
         
         PyString_AsStringAndSize(data, &buffer, &buffer_length)
@@ -112,14 +113,14 @@ cdef class Reader:
     def __dealloc__(self):
         graphfile_reader_fini(&self.reader)
     def read(self, _Linkable linkable):
-        cdef size_t i
+        cdef graphfile_size_t i
         cdef int result
         
         cdef char *result_buffer
         cdef graphfile_linkable_t *result_linkables
         
-        cdef size_t result_buffer_length, new_result_buffer_length
-        cdef size_t result_linkables_count, new_result_linkables_count
+        cdef graphfile_size_t result_buffer_length, new_result_buffer_length
+        cdef graphfile_size_t result_linkables_count, new_result_linkables_count
         result = graphfile_reader_read(
             &self.reader,
             &linkable.linkable,

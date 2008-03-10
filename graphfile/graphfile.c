@@ -45,7 +45,7 @@ int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *file)
         /* An empty file must be used */
         return -1;
     }
-    
+
     /* POSIX allows seeking to beyond the end of the file */
     if(0 != seek(file, sizeof(graphfile_linkable_t))) {
         return -1;
@@ -75,8 +75,8 @@ void graphfile_writer_fini(graphfile_writer_t *graphfile_writer)
 }
 
 int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
-                           char *buffer, size_t buffer_length,
-                           graphfile_linkable_t linkables[], size_t linkable_count,
+                           char *buffer, graphfile_size_t buffer_length,
+                           graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
                            graphfile_linkable_t *result_linkable)
 {
     FILE *file = graphfile_writer->file;
@@ -122,11 +122,11 @@ void graphfile_reader_fini(graphfile_reader_t *graphfile_reader)
 int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
                           graphfile_linkable_t *node,
 
-                          char *result_buffer, size_t max_buffer_length,
-                          size_t *result_buffer_length,
-                          
-                          graphfile_linkable_t result_linkables[], size_t max_linkable_count,
-                          size_t *result_linkables_count)
+                          char *result_buffer, graphfile_size_t max_buffer_length,
+                          graphfile_size_t *result_buffer_length,
+
+                          graphfile_linkable_t result_linkables[], graphfile_size_t max_linkable_count,
+                          graphfile_size_t *result_linkables_count)
 {
     FILE *file = graphfile_reader->file;
     if(0 != seek(file, node->offset)) {
