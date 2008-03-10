@@ -1,8 +1,17 @@
 from distutils.core import setup
 from distutils.extension import Extension
-from Pyrex.Distutils import build_ext
+try:
+    from Pyrex.Distutils import build_ext
+except ImportError:
+    cmdclass = dict()
+    def fixpyx(x):
+        return x.replace('.pyx', '.c')
+else:
+    cmdclass = dict(build_ext=build_ext)
+    def fixpyx(x):
+        return x
 setup(name = "pythontracer", version = "1.0",
-      ext_modules = [Extension("pygraphfile", ["graphfile/graphfile.c", "graphfile/python/pygraphfile.pyx"]),
-                     Extension("pytracer", ["graphfile/graphfile.c", "pytracer.pyx"])],
+      ext_modules = [Extension("pygraphfile", ["graphfile/graphfile.c", fixpyx("graphfile/python/pygraphfile.pyx")]),
+                     Extension("pytracer", ["graphfile/graphfile.c", fixpyx("pytracer.pyx")])],
       scripts = ["pytracerview.py", "pytracefile.py"],
-      cmdclass = dict(build_ext=build_ext))
+      cmdclass = cmdclass)
