@@ -2,12 +2,16 @@ from marshal import dumps
 
 cdef extern from "sys/types.h":
     ctypedef unsigned long size_t
+    ctypedef int pid_t
 
 cdef extern from "errno.h":
     int errno
     
 cdef extern from "sys/param.h":
     int HZ
+
+cdef extern from "unistd.h":
+    pid_t getpid()
 
 cdef extern from "sys/time.h":
     ctypedef long time_t
@@ -97,10 +101,12 @@ cdef class Tracer:
     cdef graphfile_writer_t writer
     cdef readonly object fileobj
     cdef object stack
+    cdef pid_t tracer_pid
     def __new__(self, fileobj):
         if 0 != graphfile_writer_init(&self.writer, get_file(fileobj)):
             raise Error("graphfile_writer_init")
         self.fileobj = fileobj
+        self.stack = None
     def __dealloc__(self):
         graphfile_writer_fini(&self.writer)
 
@@ -110,6 +116,11 @@ cdef class Tracer:
         cdef double sys_time, user_time
         cdef unsigned long long real_time
         cdef timeval tv
+
+        if self.tracer_pid != getpid():
+            # Ignore forked children events... Don't let them corrupt
+            # our file.
+            return
 
         if event != PyTrace_CALL and event != PyTrace_RETURN:
             return
@@ -166,17 +177,22 @@ cdef class Tracer:
 
     def trace(self, func):
         cdef _Linkable root
+        assert self.stack is None, "Cannot create a nested trace"
+        self.tracer_pid = getpid()
         self.stack = [(None, None, [])]
         PyEval_SetProfile(<Py_tracefunc>&callback, self)
         try:
             return func()
         finally:
-            PyEval_SetProfile(NULL, None)
-            code, times, children = self.stack.pop()
-            assert not self.stack
-            root = self._write((None, children))
-            if 0 != graphfile_writer_set_root(&self.writer, &root.linkable):
-                raise Error("graphfile_writer_set_root")
+            if self.tracer_pid == getpid():
+                PyEval_SetProfile(NULL, None)
+                code, times, children = self.stack.pop()
+                assert not self.stack
+                self.stack = None
+                self.tracer_pid = -1
+                root = self._write((None, children))
+                if 0 != graphfile_writer_set_root(&self.writer, &root.linkable):
+                    raise Error("graphfile_writer_set_root")
 
 cdef int callback(Tracer tracer, object frame, int event, void *trace_arg):
     tracer._trace_event(frame, event, trace_arg)
