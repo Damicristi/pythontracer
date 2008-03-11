@@ -45,14 +45,16 @@ class TraceReader(Model):
     def _get_namestr(self, path):
         ((module_name, func_name, lineno), times), children = self.read(path)
         return '%s(%d):%s' % (module_name, lineno, func_name)
+    def read_linkable(self, linkable):
+        data, children = self.graph_reader.read(linkable)
+        return loads(data), children
     def read(self, path):
         cur = self.graph_reader.root
         for index in path:
             data, children = self.graph_reader.read(cur)
             cur = children[index]
 
-        data, children = self.graph_reader.read(cur)
-        return loads(data), children
+        return self.read_linkable(cur)
     column_getters = [_get_namestr, _get_user_time, _get_sys_time, _get_real_time]
     column_types = [str, str, str, str]
     def __init__(self, graph_reader):
@@ -68,18 +70,18 @@ class TraceReader(Model):
             return self.on_get_iter([n])
         return tuple(path) + (n,)
 
-class TraceTree(object):
+class TraceTree(gtk.ScrolledWindow):
     def __init__(self, graph_reader):
+        gtk.ScrolledWindow.__init__(self)
         self.treestore = TraceReader(graph_reader)
 
-        self.widget = gtk.ScrolledWindow()
-        self.widget.set_policy(gtk.POLICY_AUTOMATIC,
-                               gtk.POLICY_AUTOMATIC)
-        
+        self.set_policy(gtk.POLICY_AUTOMATIC,
+                        gtk.POLICY_AUTOMATIC)
+
         self.tree_view = gtk.TreeView()
         self.tree_view.set_property('enable-search', False)
         self.tree_view.set_model(self.treestore)
-        self.widget.add(self.tree_view)
+        self.add(self.tree_view)
 
         name_column = self._create_column('Name', 0)
         user_time_column = self._create_column('User Time', 1)
@@ -104,9 +106,20 @@ class TraceTree(object):
         self.tree_view.append_column(column)
         return column
 
-class CodePane(object):
+    def expand_and_jump_to_biggest(self):
+        path, column = self.tree_view.get_cursor()
+        self.tree_view.expand_row(path, False)
+        data, children = self.treestore.read(path)
+        def child_times(index, child):
+            (code, (user_time, sys_time, real_time)), children = self.treestore.read_linkable(child)
+            return (real_time, index)
+        if children:
+            max_real_time, max_index = max(child_times(index, child) for index, child in enumerate(children))
+            self.tree_view.set_cursor(path + (max_index,))
+
+class CodePane(gtk.Frame):
     def __init__(self):
-        self.widget = gtk.Frame('<filename>')
+        gtk.Frame.__init__(self, '<filename>')
         self.scrolled_window = gtk.ScrolledWindow()
         self.scrolled_window.set_policy(gtk.POLICY_AUTOMATIC,
                                         gtk.POLICY_AUTOMATIC)
@@ -115,7 +128,7 @@ class CodePane(object):
         self.text_view.set_editable(False)
         self.highlighted_tag = self.text_buffer.create_tag(background="lightblue")
         self.scrolled_window.add(self.text_view)
-        self.widget.add(self.scrolled_window)
+        self.add(self.scrolled_window)
         self._current_filename = None
 
     def watch(self, filename, lineno):
@@ -126,7 +139,7 @@ class CodePane(object):
             except (OSError, IOError):
                 data = "Error: Cannot read %r" % (filename,)
             self.text_buffer.set_text(data)
-            self.widget.set_label(filename)
+            self.set_label(filename)
             self.last_tag = None
 
         if self.last_tag is not None:
@@ -136,25 +149,26 @@ class CodePane(object):
         after_iter = self.text_buffer.get_iter_at_line_index(lineno+1, 0)
         self.text_buffer.apply_tag(self.highlighted_tag, before_iter, after_iter)
         self.last_tag = before_iter, after_iter
-        
+
         mark = self.text_buffer.create_mark('', before_iter)
         self.text_view.scroll_to_mark(mark, 0, use_align=True)
 
-class TraceView(object):
+class TraceView(gtk.VPaned):
     def __init__(self, execution_tree):
-        self.widget = gtk.VPaned()
+        gtk.VPaned.__init__(self)
         self.trace_tree = TraceTree(execution_tree)
         self.code_pane = CodePane()
-        self.widget.pack1(self.trace_tree.widget, resize=True)
-        self.widget.pack2(self.code_pane.widget, resize=False)
+        self.pack1(self.trace_tree, resize=True)
+        self.pack2(self.code_pane, resize=False)
 
         def callback(item, column):
             data, children = item
             (filename, funcname, lineno), times = data
             self.code_pane.watch(filename, lineno-1)
         self.trace_tree.watch_cursor(callback)
-    def cursor_changed(self, *args):
-        print "Cursor at", self.trace_tree.tree_view.get_cursor()
+
+    def expand_and_jump_to_biggest(self):
+        self.trace_tree.expand_and_jump_to_biggest()
 
 def main():
     filename, = sys.argv[1:]
@@ -163,10 +177,18 @@ def main():
 
     # Create a new window
     window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+
+    ag = gtk.AccelGroup()
+    ag.connect_group(gtk.keysyms.q, gtk.gdk.CONTROL_MASK, 0, gtk.main_quit)
+    def expand_and_jump_to_biggest(accel_group, window, key, flags):
+        trace_view.expand_and_jump_to_biggest()
+    ag.connect_group(gtk.keysyms.o, 0, 0, expand_and_jump_to_biggest)
+    window.add_accel_group(ag)
+
     window.set_title("Trace view")
     window.set_size_request(600, 400)
     window.connect("delete_event", gtk.main_quit)
-    window.add(trace_view.widget)
+    window.add(trace_view)
     window.show_all()
     gtk.main()
 
