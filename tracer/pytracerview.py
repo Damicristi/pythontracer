@@ -44,7 +44,10 @@ class TraceReader(Model):
         return format_time(real_time/1000000.)
     def _get_namestr(self, path):
         ((module_name, func_name, lineno), times), children = self.read(path)
-        return '%s(%d):%s' % (module_name, lineno, func_name)
+        return func_name
+    def _get_filenamestr(self, path):
+        ((module_name, func_name, lineno), times), children = self.read(path)
+        return '%s(%d)' % (module_name, lineno)
     def read_linkable(self, linkable):
         data, children = self.graph_reader.read(linkable)
         return loads(data), children
@@ -55,8 +58,8 @@ class TraceReader(Model):
             cur = children[index]
 
         return self.read_linkable(cur)
-    column_getters = [_get_namestr, _get_user_time, _get_sys_time, _get_real_time]
-    column_types = [str, str, str, str]
+    column_getters = [_get_filenamestr, _get_namestr, _get_user_time, _get_sys_time, _get_real_time]
+    column_types = [str, str, str, str, str]
     def __init__(self, graph_reader):
         self.graph_reader = graph_reader
         Model.__init__(self)
@@ -83,12 +86,13 @@ class TraceTree(gtk.ScrolledWindow):
         self.tree_view.set_model(self.treestore)
         self.add(self.tree_view)
 
-        name_column = self._create_column('Name', 0)
-        user_time_column = self._create_column('User Time', 1)
-        system_time_column = self._create_column('System Time', 2)
-        real_time_column = self._create_column('Real Time', 3)
+        filename_column = self._create_column('Filename', 0)
+        name_column = self._create_column('Name', 1)
+        user_time_column = self._create_column('User Time', 2)
+        system_time_column = self._create_column('System Time', 3)
+        real_time_column = self._create_column('Real Time', 4)
 #        name_column.set_sort_column_id(0)
-        self.tree_view.set_search_column(0)
+#        self.tree_view.set_search_column(0)
 
     def watch_cursor(self, callback):
         def cursor_changed(tree_view):

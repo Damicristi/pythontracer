@@ -1,8 +1,9 @@
-* filter by minimum cum time
-* separate function name in some way
-* sort?
-* Add more information about call/ret (params, ret value -- print their types? ids?)
 * filter to remove uninteresting functions
+  * by minimum cum time
+* sort?
 * enable search
+
+Not really necessary:
 * replace  filename:func_name  with  filename:class_name.method_name  if method
 * show generator.next() differently to a normal call, maybe show the func_name.next() or something like that
+* Add more information about call/ret (params, ret value -- print their types? ids?)
