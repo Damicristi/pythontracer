@@ -62,7 +62,7 @@ cdef extern from "Python.h":
     # gets line number events
     void PyEval_SetTrace(Py_tracefunc func, object arg)
 
-cdef extern from "../graphfile/graphfile.h":
+cdef extern from "graphfile/graphfile.h":
     ctypedef unsigned long long graphfile_size_t
     ctypedef struct graphfile_writer_t:
         pass

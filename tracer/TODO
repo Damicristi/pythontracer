@@ -1,4 +1,7 @@
 * key to jump to/directly open highest time consumer child
+* filter by minimum cum time
+* separate function name in some way
+* sort?
 * Add more information about call/ret (params, ret value -- print their types? ids?)
 * filter to remove uninteresting functions
 * enable search
