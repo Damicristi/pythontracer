@@ -261,7 +261,7 @@ class TraceView(gtk.VPaned):
     def ui_expand(self):
         self.trace_tree.ui_expand()
     def ui_new_window(self):
-        ((filename, funcname, lineno), times), children = self.trace_tree.cursor()
+        (((filename, funcname, lineno), times), children), column = self.trace_tree.cursor()
         self.app.new_window(self.graph_reader,
                             self.trace_tree.cursor_node(),
                             ':%s:%s' % (filename, funcname))
@@ -303,8 +303,6 @@ class Application(object):
         return window
 
     def _window_closed(self, *args):
-        import pdb
-        pdb.set_trace()
         assert self._window_count >= 1
         self._window_count -= 1
         if self._window_count == 0:
