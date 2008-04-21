@@ -57,6 +57,36 @@ class Model(gtk.GenericTreeModel):
         return path[:-1]
 
 class TraceReader(Model):
+    def __init__(self, graph_reader, root):
+        self.graph_reader = graph_reader
+        self.root = root
+        Model.__init__(self)
+    def on_get_flags(self):
+        return gtk.TREE_MODEL_ITERS_PERSIST
+    def on_iter_n_children(self, path):
+        if path is None:
+            path = ()
+        data, children = self.read(path)
+        return len(children)
+    def on_iter_nth_child(self, path, n):
+        if path is None:
+            path = ()
+        if n >= self.on_iter_n_children(path):
+            return None
+        return tuple(path) + (n,)
+
+    def read_linkable(self, linkable):
+        data, children = self.graph_reader.read(linkable)
+        return loads(data), children
+    def iter(self, path):
+        cur = self.root
+        for index in path:
+            data, children = self.graph_reader.read(cur)
+            cur = children[index]
+        return cur
+    def read(self, path):
+        return self.read_linkable(self.iter(path))
+
     def format_time(self, x):
         return '%.5f' % (x,)
     def _get_user_time(self, path):
@@ -74,38 +104,13 @@ class TraceReader(Model):
     def _get_filenamestr(self, path):
         ((module_name, func_name, lineno), times), children = self.read(path)
         return '%s(%d)' % (module_name, lineno)
-    def read_linkable(self, linkable):
-        data, children = self.graph_reader.read(linkable)
-        return loads(data), children
-    def read(self, path):
-        cur = self.graph_reader.root
-        for index in path:
-            data, children = self.graph_reader.read(cur)
-            cur = children[index]
-        return self.read_linkable(cur)
     column_getters = [_get_filenamestr, _get_namestr, _get_user_time, _get_sys_time, _get_real_time]
     column_types = [str, str, str, str, str]
-    def __init__(self, graph_reader):
-        self.graph_reader = graph_reader
-        Model.__init__(self)
-    def on_get_flags(self):
-        return gtk.TREE_MODEL_ITERS_PERSIST
-    def on_iter_n_children(self, path):
-        if path is None:
-            path = ()
-        data, children = self.read(path)
-        return len(children)
-    def on_iter_nth_child(self, path, n):
-        if path is None:
-            path = ()
-        if n >= self.on_iter_n_children(path):
-            return None
-        return tuple(path) + (n,)
 
 class TraceTree(gtk.ScrolledWindow):
-    def __init__(self, graph_reader):
+    def __init__(self, graph_reader, root):
         gtk.ScrolledWindow.__init__(self)
-        self._treestore = TraceReader(graph_reader)
+        self._treestore = TraceReader(graph_reader, root)
         self.treestore = self._treestore.filter_new()
         self.treestore.set_visible_func(self._filter_func)
 
@@ -136,10 +141,18 @@ class TraceTree(gtk.ScrolledWindow):
         self._min_realtime_filter = min_real_time
         self.treestore.refilter()
 
+    def cursor_node(self):
+        path, column = self.tree_view.get_cursor()
+        return self._treestore.iter(path)
+
+    def cursor(self):
+        path, column = self.tree_view.get_cursor()
+        return self._treestore.read(path), column
+
     def watch_cursor(self, callback):
         def cursor_changed(tree_view):
-            path, column = self.tree_view.get_cursor()
-            callback(self._treestore.read(path), column)
+            item, column = self.cursor()
+            callback(item, column)
         self.tree_view.connect("cursor-changed", cursor_changed)
 
     def _create_column(self, title, column_id):
@@ -223,13 +236,12 @@ class CodePane(gtk.Frame):
         mark = self.text_buffer.create_mark('', before_iter)
         self.text_view.scroll_to_mark(mark, 0, use_align=True)
 
-
-
-
 class TraceView(gtk.VPaned):
-    def __init__(self, execution_tree):
+    def __init__(self, app, graph_reader, root):
         gtk.VPaned.__init__(self)
-        self.trace_tree = TraceTree(execution_tree)
+        self.app = app
+        self.graph_reader = graph_reader
+        self.trace_tree = TraceTree(self.graph_reader, root)
         self.code_pane = CodePane()
         self.pack1(self.trace_tree, resize=True)
         self.pack2(self.code_pane, resize=False)
@@ -248,41 +260,65 @@ class TraceView(gtk.VPaned):
         self.trace_tree.ui_collapse()
     def ui_expand(self):
         self.trace_tree.ui_expand()
+    def ui_new_window(self):
+        ((filename, funcname, lineno), times), children = self.trace_tree.cursor()
+        self.app.new_window(self.graph_reader,
+                            self.trace_tree.cursor_node(),
+                            ':%s:%s' % (filename, funcname))
 
+class Application(object):
+    def __init__(self, graph_reader, root):
+        self._window_count = 0
+        self.new_window(graph_reader, root, '')
+
+    def new_window(self, graph_reader, root, suffix):
+        trace_view = TraceView(self, graph_reader, root)
+        ag = gtk.AccelGroup()
+        ag.connect_group(gtk.keysyms.q, gtk.gdk.CONTROL_MASK, 0, gtk.main_quit)
+
+        def drop_args_func(func):
+            def new_func(*args):
+                return func()
+            return new_func
+
+        def set_shortcut_key(func, key, mod=0):
+            ag.connect_group(key, mod, 0, drop_args_func(func))
+
+        set_shortcut_key(trace_view.ui_expand_and_jump_to_biggest, gtk.keysyms.o)
+        set_shortcut_key(trace_view.ui_set_min_realtime_filter,    gtk.keysyms.question)
+        set_shortcut_key(trace_view.ui_collapse,                   gtk.keysyms.bracketleft)
+        set_shortcut_key(trace_view.ui_expand,                     gtk.keysyms.bracketright)
+        set_shortcut_key(trace_view.ui_new_window,                 gtk.keysyms.n)
+
+        # Create a new window
+        window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+        window.add_accel_group(ag)
+
+        window.set_title("Trace view" + suffix)
+        window.set_size_request(600, 400)
+        window.connect("delete_event", self._window_closed)
+        window.add(trace_view)
+        window.show_all()
+        self._window_count += 1
+        return window
+
+    def _window_closed(self, *args):
+        import pdb
+        pdb.set_trace()
+        assert self._window_count >= 1
+        self._window_count -= 1
+        if self._window_count == 0:
+            gtk.main_quit()
+
+    def main(self):
+        gtk.main()
 
 def main():
     filename, = sys.argv[1:]
-    execution_tree = Reader(open(filename, "rb"))
-    trace_view = TraceView(execution_tree)
+    graph_reader = Reader(open(filename, "rb"))
 
-    # Create a new window
-    window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-
-    ag = gtk.AccelGroup()
-    ag.connect_group(gtk.keysyms.q, gtk.gdk.CONTROL_MASK, 0, gtk.main_quit)
-
-    def drop_args_func(func):
-        def new_func(*args):
-            return func()
-        return new_func
-
-    def set_shortcut_key(func, key, mod=0):
-        ag.connect_group(key, mod, 0, drop_args_func(func))
-
-    set_shortcut_key(trace_view.ui_expand_and_jump_to_biggest, gtk.keysyms.o)
-    set_shortcut_key(trace_view.ui_set_min_realtime_filter,    gtk.keysyms.question)
-    set_shortcut_key(trace_view.ui_collapse,                   gtk.keysyms.bracketleft)
-    set_shortcut_key(trace_view.ui_expand,                     gtk.keysyms.bracketright)
-
-    window.add_accel_group(ag)
-
-    window.set_title("Trace view")
-    window.set_size_request(600, 400)
-    window.connect("delete_event", gtk.main_quit)
-    window.add(trace_view)
-    window.show_all()
-    gtk.main()
-
+    app = Application(graph_reader, graph_reader.root)
+    app.main()
 
 if __name__ == "__main__":
     main()
