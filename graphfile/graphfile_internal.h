@@ -1,9 +1,11 @@
 #ifndef __graphfile_internal_h_
 #define __graphfile_internal_h_
 
-#include <stdio.h>
+/* TODO: Clean this up into an abstraction library */
+#define _LARGEFILE64_SOURCE
+#include <sys/types.h>
 
-typedef unsigned long long graphfile_offset_t;
+#include <stdio.h>
 
 struct graphfile_writer {
     FILE *file;
@@ -14,7 +16,7 @@ struct graphfile_reader {
 };
 
 struct graphfile_linkable {
-    graphfile_offset_t offset;
+    off64_t offset;
 };
 
 #endif

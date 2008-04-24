@@ -1,5 +1,4 @@
 #include "graphfile.h"
-
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -22,26 +21,44 @@ static int readn(FILE *f, void *buffer, size_t buffer_size)
     return 0;
 }
 
-static int seek(FILE *f, long offset) {
-    if(0 != fseek(f, offset, SEEK_SET)) {
+static int safe_fileno(FILE *f) {
+    /* Must fflush before messing with the fd of a (FILE*) */
+    if(0 != fflush(f)) {
         return -1;
     }
-    if(offset != ftell(f)) {
+    /* May return -1 */
+    return fileno(f);
+}
+
+static int seek(FILE *f, off64_t offset) {
+    int fd = safe_fileno(f);
+    if(-1 == fd) {
+        return -1;
+    }
+    if(((off64_t)-1) == lseek64(fd, offset, SEEK_SET)) {
         return -1;
     }
     return 0;
 }
 
+static off64_t tell(FILE *f) {
+    int fd = safe_fileno(f);
+    if(-1 == fd) {
+        return -1;
+    }
+    return lseek64(fd, 0, SEEK_CUR);
+}
+
 int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *file)
 {
-    long offset;
+    off64_t offset;
     graphfile_writer->file = file;
     if(-1 == fseek(file, 0, SEEK_END)) {
         /* A seekable file must be used */
         return -1;
     }
-    offset = ftell(file);
-    if((-1 == offset) || (offset > 0)) {
+    offset = tell(file);
+    if(((off64_t)-1 == offset) || (offset > 0)) {
         /* An empty file must be used */
         return -1;
     }
@@ -80,8 +97,8 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
                            graphfile_linkable_t *result_linkable)
 {
     FILE *file = graphfile_writer->file;
-    long offset = ftell(file);
-    if(-1 == offset) {
+    off64_t offset = tell(file);
+    if((off64_t)-1 == offset) {
         return -1;
     }
     if((0 != writen(file, &buffer_length, sizeof buffer_length)) ||
