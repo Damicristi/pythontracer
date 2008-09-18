@@ -1,8 +1,0 @@
-* Replace gtk.treeview! :-(
-* sort?
-* enable search
-
-Not really necessary:
-* replace  filename:func_name  with  filename:class_name.method_name  if method
-* show generator.next() differently to a normal call, maybe show the func_name.next() or something like that
-* Add more information about call/ret (params, ret value -- print their types? ids?)

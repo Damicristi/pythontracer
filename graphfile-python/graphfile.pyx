@@ -1,74 +1,17 @@
+cimport memory
+from python cimport file_from_obj, PyString_AsStringAndSize
+
 class Error(Exception): pass
-
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
-
-cdef extern from "stdlib.h":
-    void *malloc(size_t size)
-    void free(void *ptr)
-
-cdef extern from "stdio.h":
-    ctypedef struct FILE
-
-cdef extern from "Python.h":
-    ctypedef unsigned long Py_ssize_t
-    int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
-    object PyString_FromStringAndSize(char *, Py_ssize_t)
-    FILE *PyFile_AsFile(fileobj)
-
-cdef extern from "../graphfile.h":
-    ctypedef unsigned long long graphfile_size_t
-    ctypedef struct graphfile_writer_t:
-        pass
-    ctypedef struct graphfile_reader_t:
-        pass
-    ctypedef struct graphfile_linkable_t:
-        pass
-    int graphfile_writer_init(graphfile_writer_t *, FILE *file)
-    int graphfile_writer_set_root(graphfile_writer_t *,
-                                  graphfile_linkable_t *root)
-    void graphfile_writer_fini(graphfile_writer_t *)
-
-    int graphfile_writer_write(graphfile_writer_t *,
-                               char *buffer, graphfile_size_t buffer_length,
-                               graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
-                               graphfile_linkable_t *result_linkable)
-
-    int graphfile_reader_init(graphfile_reader_t *, FILE *file,
-                              graphfile_linkable_t *result_root)
-    void graphfile_reader_fini(graphfile_reader_t *)
-
-    int graphfile_reader_read(graphfile_reader_t *,
-                              graphfile_linkable_t *node,
-
-                              char *result_buffer, graphfile_size_t max_buffer_length,
-                              graphfile_size_t *result_buffer_length,
-
-                              graphfile_linkable_t result_linkables[], graphfile_size_t max_linkable_count,
-                              graphfile_size_t *result_linkables_count)
-
-cdef void *allocate(int size):
-    cdef void *ptr
-    ptr = malloc(size)
-    if ptr == NULL:
-        raise MemoryError
-    return ptr
 
 cdef class _Linkable:
     cdef graphfile_linkable_t linkable
 
-cdef FILE *get_file(fileobj):
-    cdef FILE *file
-    file = PyFile_AsFile(fileobj)
-    if NULL == file:
-        raise Error("Invalid fileobj")
-    return file
-
 cdef class Writer:
     cdef graphfile_writer_t writer
     cdef readonly object fileobj
-    def __new__(self, fileobj):
-        if 0 != graphfile_writer_init(&self.writer, get_file(fileobj)):
+
+    def __cinit__(self, fileobj):
+        if 0 != graphfile_writer_init(&self.writer, file_from_obj(fileobj)):
             raise Error("graphfile_writer_init")
         self.fileobj = fileobj
     def __dealloc__(self):
@@ -85,9 +28,9 @@ cdef class Writer:
         cdef graphfile_linkable_t *c_linkables
         cdef graphfile_size_t i
         cdef int result
-        
+
         PyString_AsStringAndSize(data, &buffer, &buffer_length)
-        c_linkables = <graphfile_linkable_t *>allocate(sizeof(graphfile_linkable_t) * len(linkables))
+        c_linkables = <graphfile_linkable_t *>memory.allocate(sizeof(graphfile_linkable_t) * len(linkables))
         try:
             for i, linkable in enumerate(linkables):
                 c_linkables[i] = (<_Linkable>linkable).linkable
@@ -99,15 +42,15 @@ cdef class Writer:
                 raise Error("graphfile_writer_write")
             return result_linkable
         finally:
-            free(c_linkables)
+            memory.free(c_linkables)
 
 cdef class Reader:
     cdef graphfile_reader_t reader
     cdef readonly _Linkable root
     cdef readonly object fileobj
-    def __new__(self, fileobj):
+    def __cinit__(self, fileobj):
         self.root = _Linkable()
-        if 0 != graphfile_reader_init(&self.reader, get_file(fileobj), &self.root.linkable):
+        if 0 != graphfile_reader_init(&self.reader, file_from_obj(fileobj), &self.root.linkable):
             raise Error("graphfile_reader_init")
         self.fileobj = fileobj
     def __dealloc__(self):
@@ -115,10 +58,10 @@ cdef class Reader:
     def read(self, _Linkable linkable):
         cdef graphfile_size_t i
         cdef int result
-        
+
         cdef char *result_buffer
         cdef graphfile_linkable_t *result_linkables
-        
+
         cdef graphfile_size_t result_buffer_length, new_result_buffer_length
         cdef graphfile_size_t result_linkables_count, new_result_linkables_count
         result = graphfile_reader_read(
@@ -127,15 +70,15 @@ cdef class Reader:
 
             NULL, 0,
             &result_buffer_length,
-            
+
             NULL, 0,
             &result_linkables_count)
         if result != 0:
             raise Error("graphfile_reader_read")
 
-        result_buffer = <char *>allocate(result_buffer_length)
+        result_buffer = <char *>memory.allocate(result_buffer_length)
         try:
-            result_linkables = <graphfile_linkable_t *>allocate(result_linkables_count * sizeof(graphfile_linkable_t))
+            result_linkables = <graphfile_linkable_t *>memory.allocate(result_linkables_count * sizeof(graphfile_linkable_t))
             try:
                 result = graphfile_reader_read(
                     &self.reader,
@@ -160,6 +103,6 @@ cdef class Reader:
                     linkables.append(linkable)
                 return data, linkables
             finally:
-                free(result_linkables)
+                memory.free(result_linkables)
         finally:
-            free(result_buffer)
+            memory.free(result_buffer)
