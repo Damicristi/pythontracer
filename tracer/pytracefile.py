@@ -2,7 +2,20 @@
 
 import sys
 import os
+import traceback
 from pytracer import Tracer
+
+def exec_wrapper(python_program):
+    def wrapper():
+        g = {'__name__':'__main__'}
+        try:
+            execfile(python_program, g, g)
+        except:
+            print "Traced function completed with an exception:"
+            traceback.print_exc()
+        else:
+            print "Traced function completed successfully"
+    return wrapper
 
 def main():
     prog_name = sys.argv.pop(0)
@@ -25,8 +38,7 @@ def main():
     dirname = os.path.dirname(python_program)
     sys.path.insert(0, dirname)
 
-    g = {'__name__':'__main__'}
-    tracer.trace(lambda : execfile(python_program, g, g))
+    tracer.trace(exec_wrapper(python_program))
 
 if __name__ == '__main__':
     main()
