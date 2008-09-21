@@ -112,7 +112,7 @@ cdef class Tracer:
         self._write(<char *>&invocation.data, sizeof(invocation.data),
                     &invocation.children, &linkable)
         darray_fini(&invocation.children)
-        darray_remove_last(&self.stack)
+        darray_fast_remove_last(&self.stack)
         # The parent invocation:
         invocation = <CallInvocation *>darray_last(&self.stack)
         new_child_ptr = <graphfile_linkable_t *>darray_add(&invocation.children)
@@ -162,7 +162,7 @@ cdef class Tracer:
         # darray may have moved around due to re-allocations, re-take pointer:
         invocation = <CallInvocation *>darray_last(&self.stack)
         self._write(NULL, 0, &invocation.children, &root)
-        darray_remove_last(&self.stack)
+        darray_fast_remove_last(&self.stack)
         if 0 != graphfile_writer_set_root(&self.writer, &root):
             raise Error("graphfile_writer_set_root")
 

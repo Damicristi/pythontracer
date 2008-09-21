@@ -6,10 +6,14 @@ ctypedef struct darray:
     unsigned int used_count
     unsigned int allocated_count
 
-cdef void darray_init(darray *darray, size_t item_size):
+cdef int darray_init(darray *darray, size_t item_size) except -1:
     darray.array = NULL
     darray.item_size = item_size
-    darray.used_count = darray.allocated_count = 0
+    darray.used_count = 0
+    darray.allocated_count = 8
+    reallocate(&darray.array,
+               darray.allocated_count * darray.item_size)
+    return 0
 
 cdef void *darray_add(darray *darray) except NULL:
     cdef void *result
@@ -36,15 +40,17 @@ cdef void darray_fini(darray *darray):
     darray.used_count = -1
     # Keep the item_size for debuggability
 
-cdef int darray_remove_last(darray *darray) except -1:
+cdef int darray_fast_remove_last(darray *darray) except -1:
     cdef unsigned int new_used_count, new_allocated_count
 
     assert darray.used_count > 0
     new_used_count = darray.used_count - 1
-    if new_used_count < darray.allocated_count/4:
-        new_allocated_count = darray.allocated_count/4
-        reallocate(&darray.array,
-                   new_allocated_count * darray.item_size)
-        darray.allocated_count = new_allocated_count
     darray.used_count = new_used_count
     return 0
+
+# TODO: remove_last (non-fast)
+#     if darray.allocated_count>8 and new_used_count < darray.allocated_count/4:
+#         new_allocated_count = darray.allocated_count/2
+#         reallocate(&darray.array,
+#                    new_allocated_count * darray.item_size)
+#         darray.allocated_count = new_allocated_count
