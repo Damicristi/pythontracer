@@ -10,8 +10,13 @@ else:
     cmdclass = dict(build_ext=build_ext)
     def fixpyx(x):
         return x
-setup(name = "pythontracer", version = "1.4",
-      ext_modules = [Extension("pygraphfile", ["graphfile/graphfile.c", fixpyx("graphfile/python/pygraphfile.pyx")]),
-                     Extension("pytracer", ["graphfile/graphfile.c", fixpyx("pytracer.pyx")])],
+def make_extension(name, filename):
+    return Extension(name, ["graphfile/graphfile.c", fixpyx(filename)],
+                     include_dirs=["graphfile", "../pyrex-lib"])
+setup(name = "pythontracer", version = "8.9.21",
+      ext_modules = [
+          make_extension("graphfile", "graphfile-python/graphfile.pyx"),
+          make_extension("pytracer", "pytracer.pyx"),
+      ],
       scripts = ["pytracerview.py", "pytracefile.py"],
       cmdclass = cmdclass)

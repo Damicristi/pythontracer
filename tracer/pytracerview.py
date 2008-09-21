@@ -2,9 +2,9 @@
 
 import gtk
 import sys
-from pygraphfile import Reader
+import struct
+from graphfile import Reader
 from marshal import loads
-
 
 class AddFilterDialog(gtk.Dialog):
     def __init__(self):
@@ -75,9 +75,16 @@ class TraceReader(Model):
             return None
         return tuple(path) + (n,)
 
+    _format = struct.Struct('16s16siddd')
+    def _decode(self, data):
+        if not data:
+            return None
+        filename, name, lineno, user_time, sys_time, real_time = self._format.unpack(data)
+        return ((filename, name, lineno), (user_time, sys_time, real_time))
+
     def read_linkable(self, linkable):
         data, children = self.graph_reader.read(linkable)
-        return loads(data), children
+        return self._decode(data), children
     def iter(self, path):
         cur = self.root
         for index in path:
@@ -218,6 +225,7 @@ class CodePane(gtk.Frame):
         if self._current_filename != filename:
             self._current_filename = filename
             try:
+                print repr(filename)
                 data = open(filename, 'rb').read()
             except (OSError, IOError):
                 data = "Error: Cannot read %r" % (filename,)

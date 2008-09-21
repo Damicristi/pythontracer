@@ -1,5 +1,5 @@
-cimport memory
-from python cimport file_from_obj, PyString_AsStringAndSize
+include "memory.pyx"
+include "python.pyx"
 
 class Error(Exception): pass
 
@@ -30,7 +30,7 @@ cdef class Writer:
         cdef int result
 
         PyString_AsStringAndSize(data, &buffer, &buffer_length)
-        c_linkables = <graphfile_linkable_t *>memory.allocate(sizeof(graphfile_linkable_t) * len(linkables))
+        c_linkables = <graphfile_linkable_t *>allocate(sizeof(graphfile_linkable_t) * len(linkables))
         try:
             for i, linkable in enumerate(linkables):
                 c_linkables[i] = (<_Linkable>linkable).linkable
@@ -42,7 +42,7 @@ cdef class Writer:
                 raise Error("graphfile_writer_write")
             return result_linkable
         finally:
-            memory.free(c_linkables)
+            free(c_linkables)
 
 cdef class Reader:
     cdef graphfile_reader_t reader
@@ -76,9 +76,9 @@ cdef class Reader:
         if result != 0:
             raise Error("graphfile_reader_read")
 
-        result_buffer = <char *>memory.allocate(result_buffer_length)
+        result_buffer = <char *>allocate(result_buffer_length)
         try:
-            result_linkables = <graphfile_linkable_t *>memory.allocate(result_linkables_count * sizeof(graphfile_linkable_t))
+            result_linkables = <graphfile_linkable_t *>allocate(result_linkables_count * sizeof(graphfile_linkable_t))
             try:
                 result = graphfile_reader_read(
                     &self.reader,
@@ -103,6 +103,6 @@ cdef class Reader:
                     linkables.append(linkable)
                 return data, linkables
             finally:
-                memory.free(result_linkables)
+                free(result_linkables)
         finally:
-            memory.free(result_buffer)
+            free(result_buffer)
