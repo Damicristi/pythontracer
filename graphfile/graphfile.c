@@ -126,6 +126,11 @@ int graphfile_reader_init(graphfile_reader_t *graphfile_reader, FILE *file,
          * readable root. */
         return -1;
     }
+    if(0 == result_root->offset) {
+        /* Root cannot be 0. If it is 0, it means that the file was
+         * never set_root'd properly, and is corrupt. */
+        return -1;
+    }
     return 0;
 }
 
