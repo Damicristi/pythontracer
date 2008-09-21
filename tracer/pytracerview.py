@@ -57,7 +57,8 @@ class Model(gtk.GenericTreeModel):
         return path[:-1]
 
 class TraceReader(Model):
-    def __init__(self, graph_reader, root):
+    def __init__(self, string_index, graph_reader, root):
+        self.string_index = string_index
         self.graph_reader = graph_reader
         self.root = root
         Model.__init__(self)
@@ -75,11 +76,13 @@ class TraceReader(Model):
             return None
         return tuple(path) + (n,)
 
-    _format = struct.Struct('16s16siddd')
+    _format = struct.Struct('hhiddd')
     def _decode(self, data):
         if not data:
             return None
-        filename, name, lineno, user_time, sys_time, real_time = self._format.unpack(data)
+        filename_index, name_index, lineno, user_time, sys_time, real_time = self._format.unpack(data)
+        filename = self.string_index[filename_index]
+        name = self.string_index[name_index]
         return ((filename, name, lineno), (user_time, sys_time, real_time))
 
     def read_linkable(self, linkable):
@@ -115,9 +118,9 @@ class TraceReader(Model):
     column_types = [str, str, str, str, str]
 
 class TraceTree(gtk.ScrolledWindow):
-    def __init__(self, graph_reader, root):
+    def __init__(self, string_index, graph_reader, root):
         gtk.ScrolledWindow.__init__(self)
-        self._treestore = TraceReader(graph_reader, root)
+        self._treestore = TraceReader(string_index, graph_reader, root)
         self.treestore = self._treestore.filter_new()
         self.treestore.set_visible_func(self._filter_func)
 
@@ -225,7 +228,6 @@ class CodePane(gtk.Frame):
         if self._current_filename != filename:
             self._current_filename = filename
             try:
-                print repr(filename)
                 data = open(filename, 'rb').read()
             except (OSError, IOError):
                 data = "Error: Cannot read %r" % (filename,)
@@ -245,11 +247,12 @@ class CodePane(gtk.Frame):
         self.text_view.scroll_to_mark(mark, 0, use_align=True)
 
 class TraceView(gtk.VPaned):
-    def __init__(self, app, graph_reader, root):
+    def __init__(self, app, string_index, graph_reader, root):
         gtk.VPaned.__init__(self)
         self.app = app
+        self.string_index = string_index
         self.graph_reader = graph_reader
-        self.trace_tree = TraceTree(self.graph_reader, root)
+        self.trace_tree = TraceTree(self.string_index, self.graph_reader, root)
         self.code_pane = CodePane()
         self.pack1(self.trace_tree, resize=True)
         self.pack2(self.code_pane, resize=False)
@@ -275,12 +278,12 @@ class TraceView(gtk.VPaned):
                             ':%s:%s' % (filename, funcname))
 
 class Application(object):
-    def __init__(self, graph_reader, root):
+    def __init__(self, string_index, graph_reader, root):
         self._window_count = 0
-        self.new_window(graph_reader, root, '')
+        self.new_window(string_index, graph_reader, root, '')
 
-    def new_window(self, graph_reader, root, suffix):
-        trace_view = TraceView(self, graph_reader, root)
+    def new_window(self, string_index, graph_reader, root, suffix):
+        trace_view = TraceView(self, string_index, graph_reader, root)
         ag = gtk.AccelGroup()
         ag.connect_group(gtk.keysyms.q, gtk.gdk.CONTROL_MASK, 0, gtk.main_quit)
 
@@ -319,11 +322,24 @@ class Application(object):
     def main(self):
         gtk.main()
 
+def read_string_index(fileobj):
+    string_index = {}
+    header_fmt = struct.Struct('HH')
+    while True:
+        data = fileobj.read(header_fmt.size)
+        if not data:
+            break
+        index, size = header_fmt.unpack(data)
+        value = fileobj.read(size)
+        string_index[index] = value
+    return string_index
+
 def main():
     filename, = sys.argv[1:]
+    string_index = read_string_index(open(filename+'.index', "rb"))
     graph_reader = Reader(open(filename, "rb"))
 
-    app = Application(graph_reader, graph_reader.root)
+    app = Application(string_index, graph_reader, graph_reader.root)
     app.main()
 
 if __name__ == "__main__":

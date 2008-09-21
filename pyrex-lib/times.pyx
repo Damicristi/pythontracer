@@ -1,5 +1,4 @@
-cdef extern from "errno.h":
-    int errno
+from posix cimport errno
 
 cdef extern from "sys/time.h":
     ctypedef long time_t

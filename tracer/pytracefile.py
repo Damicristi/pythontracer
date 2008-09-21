@@ -18,7 +18,8 @@ def main():
 
     assert not sys.argv[0].startswith('-'), "Unknown option %r" % (sys.argv[0],)
 
-    tracer = Tracer(open(output_filename, "wb"))
+    tracer = Tracer(open(output_filename, "wb"),
+                    open(output_filename + '.index', "wb"))
 
     python_program = sys.argv[0]
     dirname = os.path.dirname(python_program)

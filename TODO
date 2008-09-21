@@ -1,3 +1,4 @@
+* When pid is wrong, don't "ignore", kill all remains of tracer?
 * Reorganize to: ?
   libs/
     graphfile*
