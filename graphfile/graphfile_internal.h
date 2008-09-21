@@ -11,6 +11,7 @@
 
 struct graphfile_writer {
     FILE *file;
+    off64_t offset;
 };
 
 struct graphfile_reader {

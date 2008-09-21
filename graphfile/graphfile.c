@@ -67,6 +67,7 @@ int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *file)
     if(0 != seek(file, sizeof(graphfile_linkable_t))) {
         return -1;
     }
+    graphfile_writer->offset = sizeof(graphfile_linkable_t);
     return 0;
 }
 
@@ -97,7 +98,7 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
                            graphfile_linkable_t *result_linkable)
 {
     FILE *file = graphfile_writer->file;
-    off64_t offset = tell(file);
+    off64_t offset = graphfile_writer->offset;
     if((off64_t)-1 == offset) {
         return -1;
     }
@@ -108,6 +109,10 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
     {
         return -1;
     }
+    graphfile_writer->offset += (sizeof buffer_length +
+                                 buffer_length +
+                                 sizeof linkable_count +
+                                 (sizeof linkables[0])*linkable_count);
     result_linkable->offset = offset;
     return 0;
 }
