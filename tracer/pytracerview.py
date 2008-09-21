@@ -4,7 +4,6 @@ import gtk
 import sys
 import struct
 from graphfile import Reader
-from marshal import loads
 
 class AddFilterDialog(gtk.Dialog):
     def __init__(self):
