@@ -201,7 +201,7 @@ class TraceTree(gtk.ScrolledWindow):
         path, column = self.tree_view.get_cursor()
         if self.tree_view.row_expanded(path):
             self.tree_view.collapse_row(path)
-        else:
+        elif len(path) >= 2:
             self.tree_view.set_cursor(path[:-1])
     def ui_expand(self):
         path, column = self.tree_view.get_cursor()
