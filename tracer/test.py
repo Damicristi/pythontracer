@@ -11,10 +11,7 @@ def h():
 def f():
     for i in xrange(10):
         g()
-    try:
-        h()
-    except:
-        print "Caught h"
+    h()
 
 if __name__ == '__main__':
     f()
