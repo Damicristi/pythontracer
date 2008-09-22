@@ -10,11 +10,10 @@ import os
 import sys
 
 # This is the format that gets written directly to file:
-ctypedef short string_index
+ctypedef short code_index
 
 ctypedef struct CodeObject:
-    string_index filename_index
-    string_index name_index
+    code_index index
 
 ctypedef struct InvocationData:
     CodeObject code_object
@@ -32,6 +31,19 @@ cdef void call_invocation_empty(CallInvocation *invocation):
     memset(invocation, 0, sizeof(invocation[0]))
     darray_init(&invocation.children, sizeof(graphfile_linkable_t))
 
+cdef fwrite_string(object name, FILE *index_file):
+    cdef char *name_buf
+    cdef Py_ssize_t name_length
+    cdef short short_name_length
+    PyString_AsStringAndSize(name, &name_buf, &name_length)
+    short_name_length = name_length
+
+    # Don't let overlaps occur
+    assert short_name_length == name_length
+
+    safe_fwrite(&short_name_length, sizeof(short_name_length), index_file)
+    safe_fwrite(name_buf, name_length, index_file)
+
 class Error(Exception): pass
 
 cdef class _Linkable:
@@ -45,10 +57,10 @@ cdef class Tracer:
     cdef graphfile_writer_t writer
     cdef darray stack
     cdef posix.pid_t tracer_pid
-    cdef string_index next_string_index
+    cdef code_index next_code_index
     cdef object _prev_os_exit
     def __cinit__(self, fileobj, index_fileobj):
-        self.next_string_index = 0
+        self.next_code_index = 0
         self.index_file = file_from_obj(index_fileobj)
         self.index_fileobj = index_fileobj
 
@@ -65,8 +77,7 @@ cdef class Tracer:
                                   double user_time,
                                   double sys_time,
                                   double real_time) except -1:
-        invocation.data.code_object.filename_index = self._index_of_name(code_obj.co_filename)
-        invocation.data.code_object.name_index = self._index_of_name(code_obj.co_name)
+        invocation.data.code_object.index = self._index_of_code(code_obj)
         invocation.data.lineno = lineno
         invocation.data.user_time = user_time
         invocation.data.sys_time = sys_time
@@ -119,26 +130,28 @@ cdef class Tracer:
         new_child_ptr[0] = linkable
         return 0
 
-    cdef int _index_of_name(self, object name) except -1:
-        cdef char *name_buf
-        cdef Py_ssize_t name_length
-        cdef short short_name_length
-        cdef string_index index
-        if name in self.written_indexes:
-            return self.written_indexes[name]
-        PyString_AsStringAndSize(name, &name_buf, &name_length)
-        short_name_length = name_length
+    cdef int _index_of_code(self, object code) except -1:
+        cdef code_index index
+        cdef object key
+
+        # TODO: Is it ok to assume code objects keep around with their ID's?
+        key = id(code)
+        if key in self.written_indexes:
+            return self.written_indexes[key]
+
+        index = self.next_code_index
+
         # Prevent wraparounds:
-        assert short_name_length == name_length
-        index = self.next_string_index
+        assert self.next_code_index != 0
+
         safe_fwrite(&index, sizeof(index), self.index_file)
-        safe_fwrite(&short_name_length, sizeof(short_name_length), self.index_file)
-        safe_fwrite(name_buf, name_length, self.index_file)
-        safe_fflush(self.index_file)
-        self.written_indexes[name] = index
-        self.next_string_index = index + 1
-        # Don't let overlaps occur
-        assert self.next_string_index != 0
+
+        fwrite_string(code.co_filename, self.index_file)
+        fwrite_string(code.co_name, self.index_file)
+
+        self.written_indexes[key] = index
+        self.next_code_index = index + 1
+
         return index
 
     cdef int _write(self, char *buffer, unsigned int buffer_length,
