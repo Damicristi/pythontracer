@@ -1,4 +1,5 @@
 cimport posix
+cimport rotatingtree
 include "times.pyx"
 include "memory.pyx"
 include "python.pyx"
@@ -52,7 +53,7 @@ cdef class _Linkable:
 cdef class Tracer:
     cdef readonly object fileobj
     cdef readonly object index_fileobj
-    cdef object written_indexes
+    cdef rotatingtree.rotating_node_t *written_indexes
     cdef posix.FILE *index_file
     cdef graphfile_writer_t writer
     cdef darray stack
