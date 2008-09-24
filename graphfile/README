@@ -6,12 +6,11 @@ to other nodes.
 
 The serialized file has the following format:
 
-Offsets are 64-bit large.
-The file begins with the offset, in the file, of the "root" node.
+The file begins with an absolute 64-bit offset, of the "root" node.
 The bytes at that offset will contain a Node, of the structure:
 
-Type           Name
-64-bit,buffer  Arbitrary data of the root node
-64-bit,Offsets Offsets of linked nodes from the root node
-
-Each offset of Offsets will also be a Node.
+Type      Name
+gnumber   Size of arbitrary data
+binary    Arbitrary data
+gnumber   Number of offsets
+gnumbers  Unsigned numbers representing relative offsets pointing backwards
