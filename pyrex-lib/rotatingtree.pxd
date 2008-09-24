@@ -1,5 +1,8 @@
 cdef extern from "rotatingtree.h":
-    ctypedef struct rotating_node_t
+    ctypedef struct rotating_node_t:
+        void *key
+        rotating_node_t *left
+        rotating_node_t *right
     rotating_node_t *EMPTY_ROTATING_TREE
     ctypedef int (*rotating_tree_enum_fn)(rotating_node_t *node, void *arg)
     void RotatingTree_Add(rotating_node_t **root, rotating_node_t *node)

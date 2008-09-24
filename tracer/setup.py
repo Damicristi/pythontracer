@@ -11,7 +11,9 @@ else:
     def fixpyx(x):
         return x
 def make_extension(name, filename):
-    return Extension(name, ["graphfile/graphfile.c", fixpyx(filename)],
+    return Extension(name, ["graphfile/graphfile.c",
+                            "rotatingtree.c",
+                            fixpyx(filename)],
                      include_dirs=["graphfile", "../pyrex-lib"],
                      define_macros=[("PYREX_WITHOUT_ASSERTIONS", "")])
 setup(name = "pythontracer", version = "8.9.21",

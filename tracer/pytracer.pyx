@@ -11,17 +11,16 @@ import os
 import sys
 
 # This is the format that gets written directly to file:
-ctypedef short code_index
+ctypedef short CodeIndex
 
-ctypedef struct CodeObject:
-    code_index index
+ctypedef struct CodeIndexEntry:
+    rotatingtree.rotating_node_t header
+    CodeIndex code_index
 
 ctypedef struct InvocationData:
-    CodeObject code_object
+    CodeIndex index
     int lineno
     double user_time, sys_time, real_time
-
-
 
 ctypedef struct CallInvocation:
     InvocationData data
@@ -45,6 +44,10 @@ cdef fwrite_string(object name, FILE *index_file):
     safe_fwrite(&short_name_length, sizeof(short_name_length), index_file)
     safe_fwrite(name_buf, name_length, index_file)
 
+cdef int freeEntry(rotatingtree.rotating_node_t *header, void *arg):
+    free(header)
+    return 0
+
 class Error(Exception): pass
 
 cdef class _Linkable:
@@ -58,7 +61,7 @@ cdef class Tracer:
     cdef graphfile_writer_t writer
     cdef darray stack
     cdef posix.pid_t tracer_pid
-    cdef code_index next_code_index
+    cdef CodeIndex next_code_index
     cdef object _prev_os_exit
     def __cinit__(self, fileobj, index_fileobj):
         self.next_code_index = 0
@@ -78,7 +81,7 @@ cdef class Tracer:
                                   double user_time,
                                   double sys_time,
                                   double real_time) except -1:
-        invocation.data.code_object.index = self._index_of_code(code_obj)
+        invocation.data.index = self._index_of_code(code_obj)
         invocation.data.lineno = lineno
         invocation.data.user_time = user_time
         invocation.data.sys_time = sys_time
@@ -132,28 +135,30 @@ cdef class Tracer:
         return 0
 
     cdef int _index_of_code(self, object code) except -1:
-        cdef code_index index
-        cdef object key
+        cdef unsigned long key
+        cdef CodeIndexEntry *node
 
         # TODO: Is it ok to assume code objects keep around with their ID's?
         key = id(code)
-        if key in self.written_indexes:
-            return self.written_indexes[key]
+        node = <CodeIndexEntry *>rotatingtree.RotatingTree_Get(&self.written_indexes, <void *>key)
+        if node != NULL:
+            return node.code_index
 
-        index = self.next_code_index
+        node = <CodeIndexEntry *>malloc(sizeof(CodeIndexEntry))
+        node.header.key = <void *>key
+        node.code_index = self.next_code_index
 
         # Prevent wraparounds:
         assert self.next_code_index != 0
 
-        safe_fwrite(&index, sizeof(index), self.index_file)
+        safe_fwrite(&node.code_index, sizeof(node.code_index), self.index_file)
 
         fwrite_string(code.co_filename, self.index_file)
         fwrite_string(code.co_name, self.index_file)
 
-        self.written_indexes[key] = index
-        self.next_code_index = index + 1
-
-        return index
+        rotatingtree.RotatingTree_Add(&self.written_indexes, &node.header)
+        self.next_code_index = node.code_index + 1
+        return node.code_index
 
     cdef int _write(self, char *buffer, unsigned int buffer_length,
                     darray *children, graphfile_linkable_t *result) except -1:
@@ -197,7 +202,7 @@ cdef class Tracer:
         darray_init(&self.stack, sizeof(CallInvocation))
         self._push_root()
         self.tracer_pid = posix.getpid()
-        self.written_indexes = {}
+        self.written_indexes = rotatingtree.EMPTY_ROTATING_TREE
         try:
             PyEval_SetProfile(<Py_tracefunc>&callback, self)
             self._prev_os_exit = os._exit
@@ -225,7 +230,8 @@ cdef class Tracer:
                 if self.tracer_pid == posix.getpid():
                     self._pop_root()
         finally:
-            self.written_indexes = None
+            rotatingtree.RotatingTree_Enum(self.written_indexes, &freeEntry, NULL)
+            self.written_indexes = NULL
             self.tracer_pid = -1
             darray_fini(&self.stack)
 
