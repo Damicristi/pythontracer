@@ -1,6 +1,7 @@
 #include "graphfile.h"
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -25,48 +26,42 @@ static int readn(FILE *f, void *buffer, size_t buffer_size)
 }
 
 
-static uint32_t barker32 = -1UL;
-static uint16_t barker16 = (uint16_t)-1UL;
+#define GNUMBER_BARKER_SIZE	(3)
+#define GNUMBER_BARKER		((1UL<<(8*GNUMBER_BARKER_SIZE))-1)
+static unsigned char gnumber_barker[GNUMBER_BARKER_SIZE] = { 0xFF, 0xFF, 0xFF };
 
 static int write_gnumber(FILE *f, uint64_t number64)
 {
     /* Endianness is crap :-(
        To overcome it, lets do this: */
-    uint32_t number32 = number64;
-    uint16_t number16 = number64;
-    if(number64 < barker16) {
-        IF_ERR_RETURN(writen(f, &number16, sizeof number16));
-        return sizeof number16;
+    if(number64 < GNUMBER_BARKER) {
+        unsigned char gnumber[GNUMBER_BARKER_SIZE] = {
+            (uint8_t)(number64 >> 0),
+            (uint8_t)(number64 >> 8),
+            (uint8_t)(number64 >> 16)
+        };
+        IF_ERR_RETURN(writen(f, gnumber, sizeof gnumber));
+        return sizeof gnumber;
     }
-    IF_ERR_RETURN(writen(f, &barker16, sizeof barker16));
-    if(number64 < barker32) {
-        IF_ERR_RETURN(writen(f, &number32, sizeof number32));
-        return sizeof barker16 + sizeof number32;
-    }
-    IF_ERR_RETURN(writen(f, &barker32, sizeof barker32));
+    IF_ERR_RETURN(writen(f, gnumber_barker, sizeof gnumber_barker));
     IF_ERR_RETURN(writen(f, &number64, sizeof number64));
-    return sizeof barker16 + sizeof barker32 + sizeof number64;
+    return sizeof gnumber_barker + sizeof number64;
 }
 
 static int read_gnumber(FILE *f, uint64_t *p_number64)
 {
-    uint32_t number32;
-    uint16_t number16;
+    unsigned char gnumber[GNUMBER_BARKER_SIZE];
 
-    IF_ERR_RETURN(readn(f, &number16, sizeof number16));
-    if(number16 != barker16) {
-        (*p_number64) = number16;
-        return sizeof number16;
-    }
-
-    IF_ERR_RETURN(readn(f, &number32, sizeof number32));
-    if(number32 != barker32) {
-        (*p_number64) = number32;
-        return sizeof number16 + sizeof number32;
+    IF_ERR_RETURN(readn(f, gnumber, sizeof gnumber));
+    if(0 != memcmp(gnumber, gnumber_barker, GNUMBER_BARKER_SIZE)) {
+        (*p_number64) = ((((uint64_t)gnumber[0]) << 0) +
+                         (((uint64_t)gnumber[1]) << 8) +
+                         (((uint64_t)gnumber[2]) << 16));
+        return sizeof gnumber;
     }
 
     IF_ERR_RETURN(readn(f, p_number64, sizeof *p_number64));
-    return sizeof number16 + sizeof number32 + sizeof *p_number64;
+    return sizeof gnumber + sizeof *p_number64;
 }
 
 
