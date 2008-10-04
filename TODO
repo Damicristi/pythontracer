@@ -1,16 +1,28 @@
-* When pid is wrong, don't "ignore", kill all remains of tracer?
 * Reorganize to: ?
   libs/
     graphfile*
     pyrex-libs*
   tracer/
 
-* Faster C side tracing, instead of Pyrex
-* Replace gtk.treeview! :-(
-* sort?
-* enable search
+* Tracer:
+  * When pid is wrong, don't "ignore", kill all remains of tracer?
+
+* Profile the profiler. Maybe a C lib (graphfile) is too slow?
+
+* Alternate format? 
+  * Just append everything immediately, leaving room to fill in forward 
+    ptrs and data is better to allow it to die at any stage (Avoid set_root)
+  * Can an alternate format also allow cyclic writes into shared memory?
+  * Are there any advantages to using shared memory? Getting the
+    inter-thread order rights
+
+* Add more information about call/ret (params, ret value -- print their types? ids?)
+
+* Viewer:
+  * Replace gtk.treeview! :-(
+  * sort?
+  * enable search
 
 Not really necessary:
-* replace  filename:func_name  with  filename:class_name.method_name  if method
-* show generator.next() differently to a normal call, maybe show the func_name.next() or something like that
-* Add more information about call/ret (params, ret value -- print their types? ids?)
+* show generator.next() differently to a normal call, 
+  maybe show the func_name.next() or something like that
