@@ -24,5 +24,6 @@ setup(name = "pythontracer", version = VERSION,
           make_extension("pytracer", ["tracer/pytracer.pyx", "tracer/rotatingtree.c"],
 ),
       ],
-      scripts = ["tracer/pytracerview.py", "tracer/pytracefile.py"],
+      py_modules = ["pytracerview"],
+      scripts = ["tracer/pytracefile.py"],
       cmdclass = cmdclass)

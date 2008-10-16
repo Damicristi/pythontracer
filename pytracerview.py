@@ -339,13 +339,16 @@ def read_code_index(fileobj):
         code_index[index] = filename, name
     return code_index
 
-def main():
-    filename, = sys.argv[1:]
+def tracerview(filename):
     code_index = read_code_index(open(filename+'.index', "rb"))
     graph_reader = Reader(open(filename, "rb"))
 
     app = Application(code_index, graph_reader, graph_reader.root)
     app.main()
+
+def main():
+    filename, = sys.argv[1:]
+    tracerview(filename)
 
 if __name__ == "__main__":
     main()
