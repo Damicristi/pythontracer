@@ -86,7 +86,7 @@ static int seek(FILE *f, graphfile_offset_t offset) {
 static graphfile_offset_t tell(FILE *f) {
     int fd = safe_fileno(f);
     IF_ERR_RETURN(fd);
-    return lseek64(fd, 0, SEEK_CUR);
+    return graphfile_seek(fd, 0, SEEK_CUR);
 }
 
 int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *file)
