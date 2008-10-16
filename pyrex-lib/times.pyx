@@ -13,10 +13,10 @@ cdef extern from "sys/time.h":
 cdef extern from "time.h":
     int gettimeofday(timeval *tv, timezone *tz)
 
-cdef extern from "sys/times.h":
+cdef extern from "sys/resource.h":
     struct rusage:
-        struct timeval ru_utime
-        struct timeval ru_stime
+        timeval ru_utime
+        timeval ru_stime
     int RUSAGE_SELF
     int getrusage(int who, rusage *usage)
 
@@ -28,7 +28,7 @@ cdef double double_of_tv(timeval *tv):
 
 cdef int get_user_sys_times(double *user_time, double *sys_time) except -1:
     cdef int getrusage_return
-    cdef tms getrusage_result
+    cdef rusage getrusage_result
 
     # Get user/sys times
     errno = 0
