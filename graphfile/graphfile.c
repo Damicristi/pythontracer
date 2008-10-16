@@ -74,16 +74,16 @@ static int safe_fileno(FILE *f) {
     return fileno(f);
 }
 
-static int seek(FILE *f, off64_t offset) {
+static int seek(FILE *f, graphfile_offset_t offset) {
     int fd = safe_fileno(f);
     IF_ERR_RETURN(fd);
-    if(((off64_t)-1) == lseek64(fd, offset, SEEK_SET)) {
+    if(((graphfile_offset_t)-1) == graphfile_seek(fd, offset, SEEK_SET)) {
         return -1;
     }
     return 0;
 }
 
-static off64_t tell(FILE *f) {
+static graphfile_offset_t tell(FILE *f) {
     int fd = safe_fileno(f);
     IF_ERR_RETURN(fd);
     return lseek64(fd, 0, SEEK_CUR);
@@ -91,14 +91,14 @@ static off64_t tell(FILE *f) {
 
 int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *file)
 {
-    off64_t offset;
+    graphfile_offset_t offset;
     graphfile_writer->file = file;
     if(-1 == fseek(file, 0, SEEK_END)) {
         /* A seekable file must be used */
         return -1;
     }
     offset = tell(file);
-    if(((off64_t)-1 == offset) || (offset > 0)) {
+    if(((graphfile_offset_t)-1 == offset) || (offset > 0)) {
         /* An empty file must be used */
         return -1;
     }
@@ -134,7 +134,7 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
     graphfile_size_t i;
     graphfile_size_t size;
     FILE *file = graphfile_writer->file;
-    off64_t offset = graphfile_writer->offset;
+    graphfile_offset_t offset = graphfile_writer->offset;
 
     /* TODO: Clean up all this code duplication */
     IF_ERR_RETURN(size = write_gnumber(file, buffer_length));
