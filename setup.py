@@ -1,5 +1,8 @@
 from distutils.core import setup
 from distutils.extension import Extension
+
+VERSION = "8.10.16"
+
 try:
     from Pyrex.Distutils import build_ext
 except ImportError:
@@ -13,9 +16,8 @@ else:
 def make_extension(name, filenames):
     return Extension(name, ["graphfile/graphfile.c"] +
                      map(fixpyx, filenames),
-                     include_dirs=["graphfile", "../pyrex-lib"],
+                     include_dirs=["graphfile", "graphfile-python", "pyrex-lib"],
                      define_macros=[("PYREX_WITHOUT_ASSERTIONS", "")])
-from tracer.pytracefile import VERSION
 setup(name = "pythontracer", version = VERSION,
       ext_modules = [
           make_extension("graphfile", ["graphfile-python/graphfile.pyx"]),

@@ -30,7 +30,7 @@ static int readn(FILE *f, void *buffer, size_t buffer_size)
 #define GNUMBER_BARKER		((1UL<<(8*GNUMBER_BARKER_SIZE))-1)
 static unsigned char gnumber_barker[GNUMBER_BARKER_SIZE] = { 0xFF, 0xFF, 0xFF };
 
-static int write_gnumber(FILE *f, uint64_t number64)
+static graphfile_size_t write_gnumber(FILE *f, uint64_t number64)
 {
     /* Endianness is crap :-(
        To overcome it, lets do this: */
@@ -48,7 +48,7 @@ static int write_gnumber(FILE *f, uint64_t number64)
     return sizeof gnumber_barker + sizeof number64;
 }
 
-static int read_gnumber(FILE *f, uint64_t *p_number64)
+static graphfile_size_t read_gnumber(FILE *f, uint64_t *p_number64)
 {
     unsigned char gnumber[GNUMBER_BARKER_SIZE];
 
@@ -194,18 +194,23 @@ int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
     graphfile_size_t i;
     graphfile_size_t min_linkable_count;
     uint64_t relative_offset;
+    uint64_t buffer_length;
+    uint64_t linkables_count;
     graphfile_size_t size;
     FILE *file = graphfile_reader->file;
     IF_ERR_RETURN(seek(file, node->offset));
-    IF_ERR_RETURN(size = read_gnumber(file, result_buffer_length));
-    IF_ERR_RETURN(readn(file, result_buffer, UNSAFE_MIN(max_buffer_length, *result_buffer_length)));
-    IF_ERR_RETURN(seek(file, node->offset + size + *result_buffer_length));
-    IF_ERR_RETURN(read_gnumber(file, result_linkables_count));
-    min_linkable_count = UNSAFE_MIN(max_linkable_count, *result_linkables_count);
+    IF_ERR_RETURN(size = read_gnumber(file, &buffer_length));
+    IF_ERR_RETURN(readn(file, result_buffer, UNSAFE_MIN(max_buffer_length, buffer_length)));
+    IF_ERR_RETURN(seek(file, node->offset + size + buffer_length));
+    IF_ERR_RETURN(read_gnumber(file, &linkables_count));
+    min_linkable_count = UNSAFE_MIN(max_linkable_count, linkables_count);
     for(i = 0; i < min_linkable_count; ++i) {
         IF_ERR_RETURN(read_gnumber(file, &relative_offset));
         result_linkables[i].offset = node->offset - relative_offset;
     }
+
+    (*result_linkables_count) = linkables_count;
+    (*result_buffer_length) = buffer_length;
 
     return 0;
 }

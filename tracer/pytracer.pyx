@@ -5,7 +5,7 @@ include "memory.pyx"
 include "python.pyx"
 include "darray.pyx"
 include "files.pyx"
-include "graphfile-python/graphfile.pxd"
+include "graphfile.pxd"
 
 import os
 import sys

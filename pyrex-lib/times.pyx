@@ -14,28 +14,29 @@ cdef extern from "time.h":
     int gettimeofday(timeval *tv, timezone *tz)
 
 cdef extern from "sys/times.h":
-    ctypedef int clock_t
-    struct tms:
-        clock_t tms_utime
-        clock_t tms_stime
-        clock_t tms_cutime
-        clock_t tms_cstime
-    clock_t times(tms *buf)
+    struct rusage:
+        struct timeval ru_utime
+        struct timeval ru_stime
+    int RUSAGE_SELF
+    int getrusage(int who, rusage *usage)
 
 cdef extern from "sys/param.h":
     int HZ
 
+cdef double double_of_tv(timeval *tv):
+    return (<double>1000000 * tv.tv_sec) + <double>tv.tv_usec
+
 cdef int get_user_sys_times(double *user_time, double *sys_time) except -1:
-    cdef clock_t times_return
-    cdef tms times_result
+    cdef int getrusage_return
+    cdef tms getrusage_result
 
     # Get user/sys times
     errno = 0
-    times_return = times(&times_result)
-    if times_return == <clock_t>-1:
-        raise OSError(errno, "times")
-    user_time[0] = <double>times_result.tms_utime / HZ
-    sys_time[0] = <double>times_result.tms_stime / HZ
+    getrusage_return = getrusage(RUSAGE_SELF, &getrusage_result)
+    if getrusage_return == -1:
+        raise OSError(errno, "getrusage")
+    user_time[0] = double_of_tv(&getrusage_result.ru_utime)
+    sys_time[0] = double_of_tv(&getrusage_result.ru_stime)
     return 0
 
 cdef int get_real_time(double *real_time) except -1:
@@ -44,5 +45,5 @@ cdef int get_real_time(double *real_time) except -1:
     # Get real time
     if 0 != gettimeofday(&tv, NULL):
         raise Error("gettimeofday")
-    real_time[0] = (<double>1000000 * tv.tv_sec) + <double>tv.tv_usec
+    real_time[0] = double_of_tv(&tv)
     return 0

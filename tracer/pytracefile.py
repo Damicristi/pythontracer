@@ -5,8 +5,6 @@ import os
 import traceback
 from pytracer import Tracer
 
-VERSION = "8.10.4"
-
 def exec_wrapper(python_program):
     def wrapper():
         g = {'__name__':'__main__'}
@@ -29,7 +27,7 @@ def main():
             output_filename = output_opt[2:]
         else:
             output_filename = sys.argv.pop(0)
-    print "Tracer version %s: Tracing into %r" % (VERSION, output_filename)
+    print "Tracing into %r" % (output_filename,)
 
     assert not sys.argv[0].startswith('-'), "Unknown option %r" % (sys.argv[0],)
 

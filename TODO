@@ -1,3 +1,5 @@
+* How to access VERSION in pytracefile.py?
+
 * Reorganize to: ?
   libs/
     graphfile*
