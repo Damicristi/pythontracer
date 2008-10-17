@@ -7,7 +7,6 @@ import os
 import traceback
 import getopt
 from pytracer import Tracer
-import pytracerview
 
 from contextlib import nested
 
@@ -97,6 +96,8 @@ def main():
     if also_view:
         view_prefix = output_prefix
     if view_prefix is not None:
+        # Don't depend on Gtk/viewer unless we must
+        import pytracerview
         pytracerview.tracerview(view_prefix)
 
 if __name__ == "__main__":

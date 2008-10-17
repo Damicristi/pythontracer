@@ -1,7 +1,3 @@
-* Improve command line processing/error reporting. Perhaps allow -view to use the same command to view a profile.out
-
-* How to access VERSION in pytracefile.py?
-
 * Reorganize to: ?
   libs/
     graphfile*
