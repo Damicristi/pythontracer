@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 
+# Written by Eyal Lotem <eyal.lotem+pt@gmail.com>
+# Copyright (2007-2008)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import gtk
 import sys
 import struct
@@ -271,7 +287,7 @@ class TraceView(gtk.VPaned):
         self.trace_tree.ui_expand()
     def ui_new_window(self):
         (((filename, funcname, lineno), times), children), column = self.trace_tree.cursor()
-        self.app.new_window(self.graph_reader,
+        self.app.new_window(self.code_index, self.graph_reader,
                             self.trace_tree.cursor_node(),
                             ':%s:%s' % (filename, funcname))
 

@@ -1,16 +1,10 @@
-* Reorganize to: ?
-  libs/
-    graphfile*
-    pyrex-libs*
-  tracer/
-
 * Tracer:
-  * When pid is wrong, don't "ignore", kill all remains of tracer?
+  * When pid is wrong, don't "ignore", kill all remains of tracer
 
-* Profile the profiler. Maybe a C lib (graphfile) is too slow?
+* Profile: The C lib (graphfile) is too slow -- what to replace with?
 
-* Alternate format? 
-  * Just append everything immediately, leaving room to fill in forward 
+* Alternate format to allow death at any time, without requiring set_root:
+  * Just append everything immediately, leaving room to fill in forward
     ptrs and data is better to allow it to die at any stage (Avoid set_root)
   * Can an alternate format also allow cyclic writes into shared memory?
   * Are there any advantages to using shared memory? Getting the
@@ -24,5 +18,5 @@
   * enable search
 
 Not really necessary:
-* show generator.next() differently to a normal call, 
+* show generator.next() differently to a normal call,
   maybe show the func_name.next() or something like that

@@ -1,3 +1,7 @@
+/* Copied from CPython (Modules/rotatingtree.c).
+ * See the CPython license: http://www.python.org/psf/license/
+ */
+
 /* "Rotating trees" (Armin Rigo)
  *
  * Google "splay trees" for the general idea.

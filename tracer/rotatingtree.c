@@ -1,3 +1,7 @@
+/* Copied from CPython (Modules/rotatingtree.c).
+ * See the CPython license: http://www.python.org/psf/license/
+ */
+
 #include "rotatingtree.h"
 
 #define KEY_LOWER_THAN(key1, key2)  ((char*)(key1) < (char*)(key2))
