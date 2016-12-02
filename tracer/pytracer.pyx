@@ -14,11 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-cimport posix
+cimport libc.stdio as stdio
+cimport posix.unistd as unistd
+cimport cpython.unicode as uni
 cimport rotatingtree
+from libc.string cimport memset
 include "times.pyx"
 include "memory.pyx"
-include "basic.pyx"
+include "pystate.pyx"
 include "darray.pyx"
 include "files.pyx"
 include "graphfile.pxd"
@@ -47,17 +50,21 @@ cdef void call_invocation_empty(CallInvocation *invocation):
     memset(invocation, 0, sizeof(invocation[0]))
     darray_init(&invocation.children, sizeof(graphfile_linkable_t))
 
-cdef fwrite_string(object name, FILE *index_file):
-    cdef Py_ssize_t name_length
-    cdef short short_name_length
-    cdef char *name_buf = PyUnicode_AsUTF8AndSize(name, &name_length)
-    short_name_length = name_length
+cdef fwrite_with_len(s, FILE *index_file):
+    cdef bytes buf
+    if type(s) is unicode:
+        buf = uni.PyUnicode_AsUTF8String(s)
+        fwrite_bytes_with_len(buf, index_file)
+    elif isinstance(s, bytes):
+        fwrite_bytes_with_len(s, index_file)
+    else:
+        raise TypeError("fwrite_with_len called with non-string")
 
-    # Don't let overlaps occur
-    assert short_name_length == name_length
-
-    safe_fwrite(&short_name_length, sizeof(short_name_length), index_file)
-    safe_fwrite(name_buf, name_length, index_file)
+cdef fwrite_bytes_with_len(bytes buf, FILE *index_file):
+    cdef short short_length = len(buf)
+    assert short_length == len(buf)
+    safe_fwrite(&short_length, sizeof(short_length), index_file)
+    safe_fwrite(<char *>buf, short_length, index_file)
 
 cdef int freeEntry(rotatingtree.rotating_node_t *header, void *arg):
     free(header)
@@ -70,28 +77,28 @@ cdef class _Linkable:
 
 cdef class Tracer:
     cdef rotatingtree.rotating_node_t *written_indexes
-    cdef posix.FILE *index_file
-    cdef posix.FILE *graph_file
+    cdef stdio.FILE *index_file
+    cdef stdio.FILE *graph_file
     cdef char graphfile_inited
     cdef graphfile_writer_t writer
     cdef darray stack
-    cdef posix.pid_t tracer_pid
+    cdef unistd.pid_t tracer_pid
     cdef CodeIndex next_code_index
     cdef object _prev_os_exit
-    def __cinit__(self, filepath, index_filepath):
+    def __cinit__(self, unicode filepath, unicode index_filepath):
         self.next_code_index = 0
         self.graphfile_inited = 0
         self.index_file = self.graph_file = NULL
-        self.index_file = fopen_str(index_filepath, "wb")
-        self.graph_file = fopen_str(filepath, "wb")
+        self.index_file = stdio.fopen(uni.PyUnicode_AsUTF8String(index_filepath), "wb")
+        self.graph_file = stdio.fopen(uni.PyUnicode_AsUTF8String(filepath), "wb")
         if 0 != graphfile_writer_init(&self.writer, self.graph_file):
             raise Error("graphfile_writer_init")
         self.graphfile_inited = 1
         self.tracer_pid = -1
     def __dealloc__(self):
         if self.graphfile_inited: graphfile_writer_fini(&self.writer)
-        if self.graph_file: fclose(self.graph_file)
-        if self.index_file: fclose(self.index_file)
+        if self.graph_file: stdio.fclose(self.graph_file)
+        if self.index_file: stdio.fclose(self.index_file)
 
     cdef int call_invocation_init(self,
                                   CallInvocation *invocation,
@@ -111,7 +118,7 @@ cdef class Tracer:
         frame = <object>frameobj
         cdef double user_time, sys_time, real_time
 
-        if self.tracer_pid != posix.getpid():
+        if self.tracer_pid != unistd.getpid():
             # Ignore forked children events... Don't let them corrupt
             # our file.
             return 0
@@ -172,8 +179,8 @@ cdef class Tracer:
 
         safe_fwrite(&node.code_index, sizeof(node.code_index), self.index_file)
 
-        fwrite_string(code.co_filename, self.index_file)
-        fwrite_string(code.co_name, self.index_file)
+        fwrite_with_len(code.co_filename, self.index_file)
+        fwrite_with_len(code.co_name, self.index_file)
 
         rotatingtree.RotatingTree_Add(&self.written_indexes, &node.header)
         self.next_code_index = node.code_index + 1
@@ -220,10 +227,10 @@ cdef class Tracer:
         assert self.tracer_pid == -1, "Cannot create a nested trace"
         darray_init(&self.stack, sizeof(CallInvocation))
         self._push_root()
-        self.tracer_pid = posix.getpid()
+        self.tracer_pid = unistd.getpid()
         self.written_indexes = rotatingtree.EMPTY_ROTATING_TREE
         try:
-            PyEval_SetProfile(&callback, self)
+            PyEval_SetProfile(<Py_tracefunc>&callback, self)
             self._prev_os_exit = os._exit
             os._exit = self._wrap_os_exit
             try:
@@ -235,7 +242,7 @@ cdef class Tracer:
                         os._exit = self._prev_os_exit
                         PyEval_SetProfile(NULL, None)
                 except:
-                    if self.tracer_pid == posix.getpid():
+                    if self.tracer_pid == unistd.getpid():
                         exc_type, exc_value, exc_tb = sys.exc_info()
                         try:
                             self._pop_root()
@@ -246,7 +253,7 @@ cdef class Tracer:
             finally:
                 # Normal return (we already covered exceptional
                 # return) requires finally, as we use "return" above
-                if self.tracer_pid == posix.getpid():
+                if self.tracer_pid == unistd.getpid():
                     self._pop_root()
         finally:
             rotatingtree.RotatingTree_Enum(self.written_indexes, &freeEntry, NULL)

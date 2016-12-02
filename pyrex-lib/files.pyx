@@ -14,23 +14,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-cimport posix
+cimport libc.stdio as stdio
 
-cdef int safe_fflush(FILE *stream) except -1:
-    if -1 == posix.fflush(stream):
-        raise OSError(posix.errno, "fflush")
+cdef int safe_fflush(stdio.FILE *stream) except -1:
+    if -1 == stdio.fflush(stream):
+        raise OSError(stdio.errno, "fflush")
     return 0
 
-cdef size_t safe_fread(void *ptr, size_t size, FILE *stream) except -1:
+cdef size_t safe_fread(void *ptr, size_t size, stdio.FILE *stream) except -1:
     cdef int rc
-    rc = posix.fread(ptr, 1, size, stream)
+    rc = stdio.fread(ptr, 1, size, stream)
     if rc == -1:
-        raise OSError(posix.errno, "fread")
+        raise OSError(stdio.errno, "fread")
     return rc
 
-cdef size_t safe_fwrite(void *ptr, size_t size, FILE *stream) except -1:
+cdef size_t safe_fwrite(void *ptr, size_t size, stdio.FILE *stream) except -1:
     cdef int rc
-    rc = posix.fwrite(ptr, 1, size, stream)
+    rc = stdio.fwrite(ptr, 1, size, stream)
     if rc == -1:
-        raise OSError(posix.errno, "fwrite")
+        raise OSError(stdio.errno, "fwrite")
     return rc

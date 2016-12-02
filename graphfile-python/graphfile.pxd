@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from posix cimport FILE
+from libc.stdio cimport FILE
+from libc.stdint cimport uint32_t
 
 cdef extern from "graphfile.h":
-    ctypedef unsigned long long graphfile_size_t
     ctypedef struct graphfile_writer_t:
         pass
     ctypedef struct graphfile_reader_t:
@@ -30,8 +30,8 @@ cdef extern from "graphfile.h":
     void graphfile_writer_fini(graphfile_writer_t *)
 
     int graphfile_writer_write(graphfile_writer_t *,
-                               char *buffer, graphfile_size_t buffer_length,
-                               graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
+                               char *buffer, size_t buffer_length,
+                               graphfile_linkable_t linkables[], uint32_t linkable_count,
                                graphfile_linkable_t *result_linkable)
 
     int graphfile_reader_init(graphfile_reader_t *, FILE *file,
@@ -41,8 +41,8 @@ cdef extern from "graphfile.h":
     int graphfile_reader_read(graphfile_reader_t *,
                               graphfile_linkable_t *node,
 
-                              char *result_buffer, graphfile_size_t max_buffer_length,
-                              graphfile_size_t *result_buffer_length,
+                              char *result_buffer, size_t max_buffer_length,
+                              size_t *result_buffer_length,
 
-                              graphfile_linkable_t result_linkables[], graphfile_size_t max_linkable_count,
-                              graphfile_size_t *result_linkables_count)
+                              graphfile_linkable_t result_linkables[], uint32_t max_linkable_count,
+                              uint32_t *result_linkables_count)

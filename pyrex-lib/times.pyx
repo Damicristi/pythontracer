@@ -14,30 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from posix cimport errno
-
-cdef extern from "sys/time.h":
-    ctypedef long time_t
-    ctypedef long suseconds_t
-    struct timeval:
-        time_t tv_sec
-        suseconds_t tv_usec
-    struct timezone:
-        int tz_minuteswest
-        int tz_dsttime
-
-cdef extern from "time.h":
-    int gettimeofday(timeval *tv, timezone *tz)
-
-cdef extern from "sys/resource.h":
-    struct rusage:
-        timeval ru_utime
-        timeval ru_stime
-    int RUSAGE_SELF
-    int getrusage(int who, rusage *usage)
-
-cdef extern from "sys/param.h":
-    int HZ
+from libc.errno cimport errno
+from posix.resource cimport RUSAGE_SELF, rusage, getrusage
+from posix.time cimport gettimeofday, timeval
 
 cdef double double_of_tv(timeval *tv):
     return (<double>1000000 * tv.tv_sec) + <double>tv.tv_usec

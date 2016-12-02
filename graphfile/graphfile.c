@@ -47,7 +47,7 @@ static int readn(FILE *f, void *buffer, size_t buffer_size)
 #define GNUMBER_BARKER		((1UL<<(8*GNUMBER_BARKER_SIZE))-1)
 static unsigned char gnumber_barker[GNUMBER_BARKER_SIZE] = { 0xFF, 0xFF, 0xFF };
 
-static graphfile_size_t write_gnumber(FILE *f, uint64_t number64)
+static uint8_t write_gnumber(FILE *f, uint64_t number64)
 {
     /* Endianness is crap :-(
        To overcome it, lets do this: */
@@ -65,7 +65,7 @@ static graphfile_size_t write_gnumber(FILE *f, uint64_t number64)
     return sizeof gnumber_barker + sizeof number64;
 }
 
-static graphfile_size_t read_gnumber(FILE *f, uint64_t *p_number64)
+static uint8_t read_gnumber(FILE *f, uint64_t *p_number64)
 {
     unsigned char gnumber[GNUMBER_BARKER_SIZE];
 
@@ -144,12 +144,11 @@ void graphfile_writer_fini(graphfile_writer_t *graphfile_writer)
 }
 
 int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
-                           char *buffer, graphfile_size_t buffer_length,
-                           graphfile_linkable_t linkables[], graphfile_size_t linkable_count,
+                           char *buffer, size_t buffer_length,
+                           graphfile_linkable_t linkables[], uint32_t linkable_count,
                            graphfile_linkable_t *result_linkable)
 {
-    graphfile_size_t i;
-    graphfile_size_t size;
+    uint8_t size;
     FILE *file = graphfile_writer->file;
     graphfile_offset_t offset = graphfile_writer->offset;
 
@@ -163,7 +162,7 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
     IF_ERR_RETURN(size = write_gnumber(file, linkable_count));
     graphfile_writer->offset += size;
 
-    for(i = 0; i < linkable_count; ++i) {
+    for(uint32_t i = 0; i < linkable_count; ++i) {
         IF_ERR_RETURN(size = write_gnumber(file, offset - linkables[i].offset));
         graphfile_writer->offset += size;
     }
@@ -202,26 +201,28 @@ void graphfile_reader_fini(graphfile_reader_t *graphfile_reader)
 int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
                           graphfile_linkable_t *node,
 
-                          char *result_buffer, graphfile_size_t max_buffer_length,
-                          graphfile_size_t *result_buffer_length,
+                          char *result_buffer, size_t max_buffer_length,
+                          size_t *result_buffer_length,
 
-                          graphfile_linkable_t result_linkables[], graphfile_size_t max_linkable_count,
-                          graphfile_size_t *result_linkables_count)
+                          graphfile_linkable_t result_linkables[], uint32_t max_linkable_count,
+                          uint32_t *result_linkables_count)
 {
-    graphfile_size_t i;
-    graphfile_size_t min_linkable_count;
-    uint64_t relative_offset;
-    uint64_t buffer_length;
-    uint64_t linkables_count;
-    graphfile_size_t size;
     FILE *file = graphfile_reader->file;
     IF_ERR_RETURN(seek(file, node->offset));
+
+    uint64_t buffer_length;
+
+    uint8_t size;
     IF_ERR_RETURN(size = read_gnumber(file, &buffer_length));
+
     IF_ERR_RETURN(readn(file, result_buffer, UNSAFE_MIN(max_buffer_length, buffer_length)));
     IF_ERR_RETURN(seek(file, node->offset + size + buffer_length));
+
+    uint64_t linkables_count;
     IF_ERR_RETURN(read_gnumber(file, &linkables_count));
-    min_linkable_count = UNSAFE_MIN(max_linkable_count, linkables_count);
-    for(i = 0; i < min_linkable_count; ++i) {
+    uint32_t min_linkable_count = UNSAFE_MIN(max_linkable_count, linkables_count);
+    for(uint32_t i = 0; i < min_linkable_count; ++i) {
+        uint64_t relative_offset;
         IF_ERR_RETURN(read_gnumber(file, &relative_offset));
         result_linkables[i].offset = node->offset - relative_offset;
     }

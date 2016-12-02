@@ -14,20 +14,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-cdef extern from "errno.h":
-    int errno
+cdef extern from "frameobject.h":
+    ctypedef struct PyFrameObject:
+        pass
 
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
-    ctypedef int pid_t
+from cpython.ref cimport PyObject
 
-cdef extern from "stdio.h":
-    ctypedef struct FILE
-    int fflush(FILE *stream)
-    FILE *fopen(const char *path, const char *mode)
-    int fclose(FILE *stream)
-    size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
-    size_t fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream)
+from cpython.pystate cimport (
+    Py_tracefunc,
+    PyTrace_CALL, PyTrace_EXCEPTION, PyTrace_LINE, PyTrace_RETURN,
+    PyTrace_C_CALL, PyTrace_C_EXCEPTION, PyTrace_C_RETURN)
 
-cdef extern from "unistd.h":
-    pid_t getpid()
+cdef extern from *:
+    void PyEval_SetProfile(Py_tracefunc cfunc, object obj)
+    void PyEval_SetTrace(Py_tracefunc cfunc, object obj)
