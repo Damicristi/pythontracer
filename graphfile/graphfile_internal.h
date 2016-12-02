@@ -41,7 +41,7 @@ struct graphfile_reader {
     FILE *file;
 };
 
-struct graphfile_linkable {
+struct graphfile_node {
     graphfile_offset_t offset;
 };
 

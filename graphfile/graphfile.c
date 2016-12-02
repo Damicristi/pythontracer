@@ -121,13 +121,13 @@ int graphfile_writer_init(graphfile_writer_t *graphfile_writer, FILE *file)
     }
 
     /* POSIX allows seeking to beyond the end of the file */
-    IF_ERR_RETURN(seek(file, sizeof(graphfile_linkable_t)));
-    graphfile_writer->offset = sizeof(graphfile_linkable_t);
+    IF_ERR_RETURN(seek(file, sizeof(graphfile_node_t)));
+    graphfile_writer->offset = sizeof(graphfile_node_t);
     return 0;
 }
 
 int graphfile_writer_set_root(graphfile_writer_t *graphfile_writer,
-                              graphfile_linkable_t *root)
+                              graphfile_node_t *root)
 {
     FILE *file = graphfile_writer->file;
     IF_ERR_RETURN(seek(file, 0));
@@ -145,8 +145,8 @@ void graphfile_writer_fini(graphfile_writer_t *graphfile_writer)
 
 int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
                            char *buffer, size_t buffer_length,
-                           graphfile_linkable_t linkables[], uint32_t linkable_count,
-                           graphfile_linkable_t *result_linkable)
+                           graphfile_node_t nodes[], uint32_t node_count,
+                           graphfile_node_t *result_node)
 {
     uint8_t size;
     FILE *file = graphfile_writer->file;
@@ -159,20 +159,20 @@ int graphfile_writer_write(graphfile_writer_t *graphfile_writer,
     IF_ERR_RETURN(writen(file, buffer, buffer_length));
     graphfile_writer->offset += buffer_length;
 
-    IF_ERR_RETURN(size = write_gnumber(file, linkable_count));
+    IF_ERR_RETURN(size = write_gnumber(file, node_count));
     graphfile_writer->offset += size;
 
-    for(uint32_t i = 0; i < linkable_count; ++i) {
-        IF_ERR_RETURN(size = write_gnumber(file, offset - linkables[i].offset));
+    for(uint32_t i = 0; i < node_count; ++i) {
+        IF_ERR_RETURN(size = write_gnumber(file, offset - nodes[i].offset));
         graphfile_writer->offset += size;
     }
-    result_linkable->offset = offset;
+    result_node->offset = offset;
     return 0;
 }
 
 
 int graphfile_reader_init(graphfile_reader_t *graphfile_reader, FILE *file,
-                          graphfile_linkable_t *result_root)
+                          graphfile_node_t *result_root)
 {
     graphfile_reader->file = file;
 
@@ -199,13 +199,13 @@ void graphfile_reader_fini(graphfile_reader_t *graphfile_reader)
 #define UNSAFE_MIN(a, b)	(((a) <= (b)) ? (a) : (b))
 
 int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
-                          graphfile_linkable_t *node,
+                          graphfile_node_t *node,
 
                           char *result_buffer, size_t max_buffer_length,
                           size_t *result_buffer_length,
 
-                          graphfile_linkable_t result_linkables[], uint32_t max_linkable_count,
-                          uint32_t *result_linkables_count)
+                          graphfile_node_t result_nodes[], uint32_t max_node_count,
+                          uint32_t *result_nodes_count)
 {
     FILE *file = graphfile_reader->file;
     IF_ERR_RETURN(seek(file, node->offset));
@@ -218,16 +218,16 @@ int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
     IF_ERR_RETURN(readn(file, result_buffer, UNSAFE_MIN(max_buffer_length, buffer_length)));
     IF_ERR_RETURN(seek(file, node->offset + size + buffer_length));
 
-    uint64_t linkables_count;
-    IF_ERR_RETURN(read_gnumber(file, &linkables_count));
-    uint32_t min_linkable_count = UNSAFE_MIN(max_linkable_count, linkables_count);
-    for(uint32_t i = 0; i < min_linkable_count; ++i) {
+    uint64_t nodes_count;
+    IF_ERR_RETURN(read_gnumber(file, &nodes_count));
+    uint32_t min_node_count = UNSAFE_MIN(max_node_count, nodes_count);
+    for(uint32_t i = 0; i < min_node_count; ++i) {
         uint64_t relative_offset;
         IF_ERR_RETURN(read_gnumber(file, &relative_offset));
-        result_linkables[i].offset = node->offset - relative_offset;
+        result_nodes[i].offset = node->offset - relative_offset;
     }
 
-    (*result_linkables_count) = linkables_count;
+    (*result_nodes_count) = nodes_count;
     (*result_buffer_length) = buffer_length;
 
     return 0;

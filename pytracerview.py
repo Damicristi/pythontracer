@@ -99,8 +99,8 @@ class TraceReader(Model):
         filename, name = self.code_index[code_index]
         return ((filename, name, lineno), (user_time, sys_time, real_time))
 
-    def read_linkable(self, linkable):
-        data, children = self.graph_reader.read(linkable)
+    def read_node(self, node):
+        data, children = self.graph_reader.read(node)
         return self._decode(data), children
     def iter(self, path):
         cur = self.root
@@ -109,7 +109,7 @@ class TraceReader(Model):
             cur = children[index]
         return cur
     def read(self, path):
-        return self.read_linkable(self.iter(path))
+        return self.read_node(self.iter(path))
 
     def format_time(self, x):
         return '%.5f' % (x,)
@@ -194,7 +194,7 @@ class TraceTree(gtk.ScrolledWindow):
         self.tree_view.expand_row(path, False)
         data, children = self._treestore.read(path)
         def child_times(index, child):
-            (code, (user_time, sys_time, real_time)), children = self._treestore.read_linkable(child)
+            (code, (user_time, sys_time, real_time)), children = self._treestore.read_node(child)
             return (real_time, index)
         if children:
             max_real_time, max_index = max(child_times(index, child) for index, child in enumerate(children))

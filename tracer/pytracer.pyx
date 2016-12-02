@@ -48,7 +48,7 @@ ctypedef struct CallInvocation:
 
 cdef void call_invocation_empty(CallInvocation *invocation):
     memset(invocation, 0, sizeof(invocation[0]))
-    darray_init(&invocation.children, sizeof(graphfile_linkable_t))
+    darray_init(&invocation.children, sizeof(graphfile_node_t))
 
 cdef fwrite_with_len(s, FILE *index_file):
     cdef bytes buf
@@ -73,7 +73,7 @@ cdef int freeEntry(rotatingtree.rotating_node_t *header, void *arg):
 class Error(Exception): pass
 
 cdef class _Linkable:
-    cdef graphfile_linkable_t linkable
+    cdef graphfile_node_t node
 
 cdef class Tracer:
     cdef rotatingtree.rotating_node_t *written_indexes
@@ -111,7 +111,7 @@ cdef class Tracer:
         invocation.data.user_time = user_time
         invocation.data.sys_time = sys_time
         invocation.data.real_time = real_time
-        darray_init(&invocation.children, sizeof(graphfile_linkable_t))
+        darray_init(&invocation.children, sizeof(graphfile_node_t))
         return 0
 
     cdef int _trace_event(self, PyFrameObject *frameobj, int event, object trace_arg) except -1:
@@ -143,21 +143,21 @@ cdef class Tracer:
 
     cdef int _pop_call(self, double user_time, double sys_time, double real_time) except -1:
         cdef CallInvocation *invocation
-        cdef graphfile_linkable_t linkable
-        cdef graphfile_linkable_t *new_child_ptr
+        cdef graphfile_node_t node
+        cdef graphfile_node_t *new_child_ptr
 
         invocation = <CallInvocation *>darray_last(&self.stack)
         invocation.data.user_time = user_time - invocation.data.user_time
         invocation.data.sys_time = sys_time - invocation.data.sys_time
         invocation.data.real_time = real_time - invocation.data.real_time
         self._write(<char *>&invocation.data, sizeof(invocation.data),
-                    &invocation.children, &linkable)
+                    &invocation.children, &node)
         darray_fini(&invocation.children)
         darray_fast_remove_last(&self.stack)
         # The parent invocation:
         invocation = <CallInvocation *>darray_last(&self.stack)
-        new_child_ptr = <graphfile_linkable_t *>darray_add(&invocation.children)
-        new_child_ptr[0] = linkable
+        new_child_ptr = <graphfile_node_t *>darray_add(&invocation.children)
+        new_child_ptr[0] = node
         return 0
 
     cdef int _index_of_code(self, object code) except -1:
@@ -187,10 +187,10 @@ cdef class Tracer:
         return node.code_index
 
     cdef int _write(self, char *buffer, unsigned int buffer_length,
-                    darray *children, graphfile_linkable_t *result) except -1:
+                    darray *children, graphfile_node_t *result) except -1:
         cdef int status
         status = graphfile_writer_write(&self.writer, buffer, buffer_length,
-                                        <graphfile_linkable_t *>children.array, children.used_count, result)
+                                        <graphfile_node_t *>children.array, children.used_count, result)
         if status != 0:
             raise Error("graphfile_writer_write")
         return 0
@@ -201,7 +201,7 @@ cdef class Tracer:
         call_invocation_empty(invocation)
 
     cdef _pop_root(self):
-        cdef graphfile_linkable_t root
+        cdef graphfile_node_t root
         cdef CallInvocation *invocation
         assert self.stack.used_count == 1
         # darray may have moved around due to re-allocations, re-take pointer:

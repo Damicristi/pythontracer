@@ -1,3 +1,3 @@
 * Use alignments to save some bits in the relative offsets
-* Consistent names (no "node", just "linkable" or vice versa)
+* Consistent names (no "node", just "node" or vice versa)
   * In python bindings too

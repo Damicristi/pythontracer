@@ -22,27 +22,27 @@ cdef extern from "graphfile.h":
         pass
     ctypedef struct graphfile_reader_t:
         pass
-    ctypedef struct graphfile_linkable_t:
+    ctypedef struct graphfile_node_t:
         pass
     int graphfile_writer_init(graphfile_writer_t *, FILE *file)
     int graphfile_writer_set_root(graphfile_writer_t *,
-                                  graphfile_linkable_t *root)
+                                  graphfile_node_t *root)
     void graphfile_writer_fini(graphfile_writer_t *)
 
     int graphfile_writer_write(graphfile_writer_t *,
                                char *buffer, size_t buffer_length,
-                               graphfile_linkable_t linkables[], uint32_t linkable_count,
-                               graphfile_linkable_t *result_linkable)
+                               graphfile_node_t nodes[], uint32_t node_count,
+                               graphfile_node_t *result_node)
 
     int graphfile_reader_init(graphfile_reader_t *, FILE *file,
-                              graphfile_linkable_t *result_root)
+                              graphfile_node_t *result_root)
     void graphfile_reader_fini(graphfile_reader_t *)
 
     int graphfile_reader_read(graphfile_reader_t *,
-                              graphfile_linkable_t *node,
+                              graphfile_node_t *node,
 
                               char *result_buffer, size_t max_buffer_length,
                               size_t *result_buffer_length,
 
-                              graphfile_linkable_t result_linkables[], uint32_t max_linkable_count,
-                              uint32_t *result_linkables_count)
+                              graphfile_node_t result_nodes[], uint32_t max_node_count,
+                              uint32_t *result_nodes_count)
