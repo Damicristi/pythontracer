@@ -14,8 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from posix import fopen, fclose
 include "memory.pyx"
-include "python.pyx"
+include "basic.pyx"
 
 class Error(Exception): pass
 
@@ -24,14 +25,20 @@ cdef class _Linkable:
 
 cdef class Writer:
     cdef graphfile_writer_t writer
-    cdef readonly object fileobj
+    cdef FILE *outfile
 
-    def __cinit__(self, fileobj):
-        if 0 != graphfile_writer_init(&self.writer, file_from_obj(fileobj)):
+    def __cinit__(self, filepath):
+        self.outfile = fopen(filepath, "wb")
+        if 0 != graphfile_writer_init(&self.writer, self.outfile):
+            self._close_file()
             raise Error("graphfile_writer_init")
-        self.fileobj = fileobj
     def __dealloc__(self):
         graphfile_writer_fini(&self.writer)
+        self._close_file()
+
+    def _close_file(self):
+        fclose(self.outfile)
+        self.outfile = NULL
 
     def set_root(self, _Linkable root):
         if 0 != graphfile_writer_set_root(&self.writer, &root.linkable):
@@ -45,7 +52,7 @@ cdef class Writer:
         cdef graphfile_size_t i
         cdef int result
 
-        PyString_AsStringAndSize(data, &buffer, &buffer_length)
+        PyBytes_AsStringAndSize(data, &buffer, &buffer_length)
         c_linkables = <graphfile_linkable_t *>allocate(sizeof(graphfile_linkable_t) * len(linkables))
         try:
             for i, linkable in enumerate(linkables):
@@ -66,7 +73,7 @@ cdef class Reader:
     cdef readonly object fileobj
     def __cinit__(self, fileobj):
         self.root = _Linkable()
-        if 0 != graphfile_reader_init(&self.reader, file_from_obj(fileobj), &self.root.linkable):
+        if 0 != graphfile_reader_init(&self.reader, fopen_str(fileobj, "rb"), &self.root.linkable):
             raise Error("graphfile_reader_init")
         self.fileobj = fileobj
     def __dealloc__(self):
@@ -110,7 +117,7 @@ cdef class Reader:
                 if (new_result_buffer_length != result_buffer_length or
                     new_result_linkables_count != result_linkables_count):
                     raise Error("File has changed within a single read")
-                data = PyString_FromStringAndSize(result_buffer, result_buffer_length)
+                data = PyBytes_FromStringAndSize(result_buffer, result_buffer_length)
                 linkables = []
                 for i from 0 <= i < result_linkables_count:
                     # NOTE: Overriding argument linkable

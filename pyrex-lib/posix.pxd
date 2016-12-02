@@ -24,6 +24,8 @@ cdef extern from "sys/types.h":
 cdef extern from "stdio.h":
     ctypedef struct FILE
     int fflush(FILE *stream)
+    FILE *fopen(const char *path, const char *mode)
+    int fclose(FILE *stream)
     size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
     size_t fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream)
 

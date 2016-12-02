@@ -14,11 +14,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from posix cimport FILE
+from posix cimport FILE, fopen, fclose
+
+cdef extern from "frameobject.h":
+    ctypedef struct PyFrameObject:
+        pass
 
 cdef extern from "Python.h":
-    object PyString_FromStringAndSize(char *, Py_ssize_t)
-    int PyString_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
+    object PyBytes_FromStringAndSize(char *, Py_ssize_t)
+    int PyBytes_AsStringAndSize(object, char **s, Py_ssize_t *len) except -1
+    char *PyUnicode_AsUTF8(object) except NULL
+    char *PyUnicode_AsUTF8AndSize(object, Py_ssize_t *size) except NULL
     enum PyTraceEvent:
         PyTrace_CALL
         PyTrace_EXCEPTION
@@ -28,16 +34,18 @@ cdef extern from "Python.h":
         PyTrace_C_EXCEPTION
         PyTrace_C_RETURN
 
-    FILE *PyFile_AsFile(fileobj)
-    ctypedef void *Py_tracefunc
-    void PyEval_SetProfile(Py_tracefunc func, object arg)
+    ctypedef int Py_tracefunc(object arg, PyFrameObject *frame, int what, object info) except -1
+    void PyEval_SetProfile(Py_tracefunc *func, object arg)
     # PyEval_SetTrace is the same as PyEval_SetProfile, except it also
     # gets line number events
-    void PyEval_SetTrace(Py_tracefunc func, object arg)
+    void PyEval_SetTrace(Py_tracefunc *func, object arg)
 
-cdef FILE *file_from_obj(fileobj) except NULL:
-    cdef FILE *file
-    file = PyFile_AsFile(fileobj)
-    if NULL == file:
+class Error(Exception): pass
+
+cdef FILE *fopen_str(object filepath, const char *mode) except NULL:
+    cdef FILE *f = fopen(PyUnicode_AsUTF8(filepath), mode)
+    if NULL == f:
+        print("RAISING")
         raise Error("Invalid fileobj")
-    return file
+    print("Opened: " + filepath)
+    return f

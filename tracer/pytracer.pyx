@@ -18,7 +18,7 @@ cimport posix
 cimport rotatingtree
 include "times.pyx"
 include "memory.pyx"
-include "python.pyx"
+include "basic.pyx"
 include "darray.pyx"
 include "files.pyx"
 include "graphfile.pxd"
@@ -48,10 +48,9 @@ cdef void call_invocation_empty(CallInvocation *invocation):
     darray_init(&invocation.children, sizeof(graphfile_linkable_t))
 
 cdef fwrite_string(object name, FILE *index_file):
-    cdef char *name_buf
     cdef Py_ssize_t name_length
     cdef short short_name_length
-    PyString_AsStringAndSize(name, &name_buf, &name_length)
+    cdef char *name_buf = PyUnicode_AsUTF8AndSize(name, &name_length)
     short_name_length = name_length
 
     # Don't let overlaps occur
@@ -70,26 +69,29 @@ cdef class _Linkable:
     cdef graphfile_linkable_t linkable
 
 cdef class Tracer:
-    cdef readonly object fileobj
-    cdef readonly object index_fileobj
     cdef rotatingtree.rotating_node_t *written_indexes
     cdef posix.FILE *index_file
+    cdef posix.FILE *graph_file
+    cdef char graphfile_inited
     cdef graphfile_writer_t writer
     cdef darray stack
     cdef posix.pid_t tracer_pid
     cdef CodeIndex next_code_index
     cdef object _prev_os_exit
-    def __cinit__(self, fileobj, index_fileobj):
+    def __cinit__(self, filepath, index_filepath):
         self.next_code_index = 0
-        self.index_file = file_from_obj(index_fileobj)
-        self.index_fileobj = index_fileobj
-
-        if 0 != graphfile_writer_init(&self.writer, file_from_obj(fileobj)):
+        self.graphfile_inited = 0
+        self.index_file = self.graph_file = NULL
+        self.index_file = fopen_str(index_filepath, "wb")
+        self.graph_file = fopen_str(filepath, "wb")
+        if 0 != graphfile_writer_init(&self.writer, self.graph_file):
             raise Error("graphfile_writer_init")
-        self.fileobj = fileobj
+        self.graphfile_inited = 1
         self.tracer_pid = -1
     def __dealloc__(self):
-        graphfile_writer_fini(&self.writer)
+        if self.graphfile_inited: graphfile_writer_fini(&self.writer)
+        if self.graph_file: fclose(self.graph_file)
+        if self.index_file: fclose(self.index_file)
 
     cdef int call_invocation_init(self,
                                   CallInvocation *invocation,
@@ -105,7 +107,8 @@ cdef class Tracer:
         darray_init(&invocation.children, sizeof(graphfile_linkable_t))
         return 0
 
-    cdef int _trace_event(self, object frame, int event, void *trace_arg) except -1:
+    cdef int _trace_event(self, PyFrameObject *frameobj, int event, object trace_arg) except -1:
+        frame = <object>frameobj
         cdef double user_time, sys_time, real_time
 
         if self.tracer_pid != posix.getpid():
@@ -220,7 +223,7 @@ cdef class Tracer:
         self.tracer_pid = posix.getpid()
         self.written_indexes = rotatingtree.EMPTY_ROTATING_TREE
         try:
-            PyEval_SetProfile(<Py_tracefunc>&callback, self)
+            PyEval_SetProfile(&callback, self)
             self._prev_os_exit = os._exit
             os._exit = self._wrap_os_exit
             try:
@@ -251,6 +254,7 @@ cdef class Tracer:
             self.tracer_pid = -1
             darray_fini(&self.stack)
 
-cdef int callback(Tracer tracer, object frame, int event, void *trace_arg) except -1:
+cdef int callback(object tracerobj, PyFrameObject *frame, int event, object trace_arg) except -1:
+    cdef Tracer tracer = tracerobj
     tracer._trace_event(frame, event, trace_arg)
     return 0

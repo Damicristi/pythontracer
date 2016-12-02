@@ -24,22 +24,22 @@ import traceback
 import getopt
 from pytracer import Tracer
 
-from contextlib import nested
-
 def exec_wrapper(python_program):
     def wrapper():
         g = {'__name__':'__main__'}
         try:
-            execfile(python_program, g, g)
+            with open(python_program) as f:
+                code = compile(f.read(), python_program, 'exec')
+                exec(code, g)
         except:
-            print "Traced function completed with an exception:"
+            print("Traced function completed with an exception:")
             traceback.print_exc()
         else:
-            print "Traced function completed successfully"
+            print("Traced function completed successfully")
     return wrapper
 
 def usage():
-    print """\
+    print("""\
 Tracing: %s [-h|--help] [-o|--output <output prefix>] [-s]
          <python script> <args>
 Viewing: %s [-v|--view <input prefix>]
@@ -58,14 +58,14 @@ Viewing:
     filename can be specified.  Instead, the trace viewer will be
     launched to view a previous trace result specified by the input
     prefix.
-    
-""" % (sys.argv[0], sys.argv[0])
+
+""" % (sys.argv[0], sys.argv[0]))
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hso:v:", ["help", "single", "output=", "view="])
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError as err:
+        print(str(err))
         usage()
         sys.exit(2)
     output_prefix = None
@@ -86,8 +86,8 @@ def main():
     if view_prefix is not None:
         # View mode:
         if output_prefix is not None or also_view or args:
-            print "Cannot both view and output a trace."
-            print "Use -s to trace & view"
+            print("Cannot both view and output a trace.")
+            print("Use -s to trace & view")
             sys.exit(3)
     elif output_prefix is None:
         output_prefix = "profile.out"
@@ -95,7 +95,7 @@ def main():
     if output_prefix is not None:
         # Trace mode:
         if not args:
-            print "No <python script> given"
+            print("No <python script> given")
             usage()
             sys.exit(4)
         sys.argv = args
@@ -103,12 +103,9 @@ def main():
         dirname = os.path.dirname(python_program)
         sys.path.insert(0, dirname)
 
-        print "Tracing into %r" % (output_prefix,)
-        with nested(open(output_prefix, "wb"),
-                    open(output_prefix + '.index', "wb")) as (output_fileobj,
-                                                              index_fileobj):
-            tracer = Tracer(output_fileobj, index_fileobj)
-            tracer.trace(exec_wrapper(python_program))
+        print("Tracing into %r" % (output_prefix,))
+        tracer = Tracer(output_prefix, output_prefix + '.index')
+        tracer.trace(exec_wrapper(python_program))
     if also_view:
         view_prefix = output_prefix
     if view_prefix is not None:

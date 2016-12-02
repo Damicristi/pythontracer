@@ -18,14 +18,14 @@ import time
 
 def g():
     time.sleep(0.1)
-    print 'g'
+    print('g')
 
 def h():
-    print 'h'
+    print('h')
     1/0
 
 def f():
-    for i in xrange(10):
+    for i in range(10):
         g()
     h()
 
