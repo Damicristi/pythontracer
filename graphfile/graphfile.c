@@ -204,6 +204,7 @@ int graphfile_reader_read(graphfile_reader_t *graphfile_reader,
                           char *result_buffer, size_t max_buffer_length,
                           size_t *result_buffer_length,
 
+                          /* TODO: Return an iterator for children instead */
                           graphfile_node_t result_nodes[], uint32_t max_node_count,
                           uint32_t *result_nodes_count)
 {
