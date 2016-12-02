@@ -1,0 +1,4 @@
+/build
+/graphfile-python/graphfile.c
+/tracer/pytracer.c
+*.pyc
